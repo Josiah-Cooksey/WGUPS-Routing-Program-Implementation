@@ -52,17 +52,47 @@ class hash_table():
 
     def insert(self, some_obj):
         insertion_attempt_count = 0
-        hash_value = self.hash(some_obj)
-        insertion_index = None
+        item_hash = self.hash(some_obj)
 
         self.resize_table()
 
         while True:
             if insertion_attempt_count > self.max_insert_attempts:
                 self.resize_table(True)
+                # to avoid resizing the table many times in a row, we reset the attempt count
+                insertion_attempt_count = 0
 
-            insertion_index = (hash_value(insertion_attempt_count) + (self.hashing_helper1 * insertion_attempt_count) + (self.hashing_helper1 * pow(insertion_attempt_count, 2))) % len(self.table)
+            probe_index = self.calculate_probe_index(item_hash, insertion_attempt_count)
+            existing_item = self.table[probe_index]
+            # as long as we're not replacing an existing item we can insert here
+            if isinstance(existing_item, bucket_status):
+                self.table[probe_index] = some_obj
+                return
+            
+            insertion_attempt_count += 1
+    
 
+    def calculate_probe_index(self, item_hash, attempt_count):
+        return (item_hash + (attempt_count) + (self.hashing_helper1 * attempt_count) + (self.hashing_helper1 * pow(attempt_count, 2))) % len(self.table)
+
+
+    # I only take the item_id as the input because it's a rubric requirement
+    def lookup(self, item_id):
+        attempt_count = 0
+        while True:
+            probe_index = self.calculate_probe_index(item_id, attempt_count)
+            item = self.table[probe_index]
+            # it's guaranteed to either be a mail_item or a bucket_status
+            # so we either find it
+            if isinstance(item, mail_item):
+                return item
+            # continue searching
+            elif item == bucket_status.DELETED:
+                attempt_count += 1
+            # or determine that it doesn't exist
+            else:
+                return None
+            
 
     #  resizes if the load index exceeds max_load_index or if overridden, in order to consolidate logic into a single function
     def resize_table(self, override=False):
@@ -90,6 +120,7 @@ class hash_table():
         return counter/len(self.table)
 
 
+    # I only return the object ID as the hash because the rubric requires storing objects in the hash table that way
     def hash(self, some_obj):
         try:
             value = some_obj.id
@@ -175,6 +206,7 @@ def parse_distance_data():
 def start():
     package_data = parse_package_data("WGUPS Package File.xlsx")
     distance_data = parse_distance_data("WGUPS Distance Table.xlsx")
+    print("done")
 
 if __name__ == "__main_":
     start()
