@@ -2,6 +2,7 @@
 import csv
 from enum import Enum
 import os
+import re
 
 """A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
 •   delivery address
@@ -42,17 +43,21 @@ H.  Verify that the data structure used in the solution meets all requirements i
 1.  Identify two other data structures that could meet the same requirements in the scenario.
 a.  Describe how each data structure identified in H1 is different from the data structure used in the solution."""
 class hash_table():
-    def __init__(self, start_size=23, max_load_index=0.5, max_insert_attempts=10, hashing_helper1=1, hashing_helper2=1):
+    def __init__(self, start_size=23, max_load_index=0.5, max_insert_attempts=10, hashing_helper1=2, hashing_helper2=2):
         self.table = [bucket_status.EMPTY for _ in range(start_size)]
         self.max_load_index = max_load_index
         self.max_insert_attempts = max_insert_attempts
         self.hashing_helper1 = hashing_helper1
         self.hashing_helper2 = hashing_helper2
+
+    
+    def __str__(self):
+        result = "".join("\n" + str(item) for item in self.table)
+        return result
     
 
-    def insert(self, some_obj):
+    def insert(self, item_hash, some_obj):
         insertion_attempt_count = 0
-        item_hash = self.hash(some_obj)
 
         self.resize_table()
 
@@ -73,14 +78,15 @@ class hash_table():
     
 
     def calculate_probe_index(self, item_hash, attempt_count):
-        return (item_hash + (attempt_count) + (self.hashing_helper1 * attempt_count) + (self.hashing_helper1 * pow(attempt_count, 2))) % len(self.table)
+        return (item_hash + (self.hashing_helper1 * attempt_count) + (self.hashing_helper2 * pow(attempt_count, 2))) % len(self.table)
 
 
     # I only take the item_id as the input because it's a rubric requirement
     def lookup(self, item_id):
         attempt_count = 0
+        item_hash = hash(item_id)
         while True:
-            probe_index = self.calculate_probe_index(item_id, attempt_count)
+            probe_index = self.calculate_probe_index(item_hash, attempt_count)
             item = self.table[probe_index]
             # it's guaranteed to either be a mail_item or a bucket_status
             # so we either find it
@@ -96,7 +102,7 @@ class hash_table():
 
     #  resizes if the load index exceeds max_load_index or if overridden, in order to consolidate logic into a single function
     def resize_table(self, override=False):
-        if not override or self.calculate_load_index() < self.max_load_index:
+        if not override and self.calculate_load_index() < self.max_load_index:
             return
         
         new_size = 2 * len(self.table)
@@ -104,13 +110,13 @@ class hash_table():
         # from what I've read, this Pythonic swap is O(1) because we're reassigning references
         self.table, new_table = new_table, self.table
         # rehashes existing items because otherwise they won't be found in the new table
-        for item in self.table:
+        for item in new_table:
             if isinstance(item, mail_item):
-                self.insert(item)
+                self.insert(item.hash, item)
     
 
     def calculate_load_index(self):
-        if len(self.table == 0):
+        if len(self.table) == 0:
             return 1
         
         counter = 0
@@ -120,39 +126,51 @@ class hash_table():
         return counter/len(self.table)
 
 
-    # I only return the object ID as the hash because the rubric requires storing objects in the hash table that way
-    def hash(self, some_obj):
-        try:
-            value = some_obj.id
-            return value
-        except:
-            return -1
+def hash_string(some_string):
+    result = 0
+    for index, char in enumerate(some_string):
+        result += (index + 1) * ord(char)
+        
+    return result
 
 # because lists in Python can hold different types, our hash table will either have an empty bucket_status or a valid mail_item
 class bucket_status(Enum):
     EMPTY = 1
-    DELETED = 1
+    DELETED = 2
+    
+    def __repr__(self):
+        return f"bucket_status{self.name}"
 
 
 class mail_item():
     def __init__(self, id=None, address=None, city=None, state=None, zip=None, deadline=None, weightKILO=None, notes=None):
-        self.id = id
+        self.id = int(id)
         self.address = address
         self.city = city
         self.state = state
-        self.zip = zip
+        self.zip = int(zip)
         self.deadline = deadline
-        self.weight = weightKILO
+        self.weight = int(weightKILO)
         self.notes = notes
         self.delivery_status = delivery_status.AT_HUB
+        self.delivery_time = None
         self.required_truck = None
         self.delivery_restrictions = None
+        self.hash = None
         self.parse_notes()
 
+    def __str__(self):
+        return f"mail_item({self.id}, {self.address}, {self.city}, {self.state}, {self.zip}, {self.deadline}, {self.weight})"
 
     def parse_notes(self):
-        if self.notes != None:
+        if self.notes == None:
             return
+        truck_restriction = re.search(r"truck\s(\d)+", self.notes)
+    
+    def mark_delivered(self, time):
+        self.delivery_time = time
+        self.delivery_status = delivery_status.DELIVERED
+
 
 
 class delivery_status(Enum):
@@ -175,7 +193,8 @@ def file_exists(filename):
 # in an ideal world this data would already be in a database that we could query
 # spreadsheets are unsustainable
 def parse_package_data(filename):
-    table = hash_table()
+    required_ID_table = hash_table()
+    my_table = hash_table()
 
     if not file_exists(filename):
         print(f"File: \"{filename}\" does not exist in the current working directory: {os.getcwd()}")
@@ -188,25 +207,32 @@ def parse_package_data(filename):
             while(True):
                 # Package ID	Address	City 	State	Zip	Delivery Deadline	Weight KILO	page 1 of 1PageSpecial Notes 
                 row = next(reader)
-                table.insert(mail_item(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
-
+                item = mail_item(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+                item.hash = item.id
+                required_ID_table.insert(item.hash, item)
+                item.hash = hash_string(item.address)
+                my_table.insert(item.hash, item)
+                print(f"table after insert: {my_table}\n")
 
     except StopIteration:
         pass
     except PermissionError:
         print(f"Permission does not exist to open \"{filename}\"")
-    except:
-        print(f"An error occurred parsing \"{filename}\"")
+    """except Exception as e:
+        print(f"An error occurred parsing \"{filename}\":\n{e}")"""
     
-    return table
+    return (required_ID_table, my_table)
 
-def parse_distance_data():
+def parse_distance_data(filename):
     return None
 
 def start():
-    package_data = parse_package_data("WGUPS Package File.xlsx")
-    distance_data = parse_distance_data("WGUPS Distance Table.xlsx")
+    # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
+    ID_package_table, package_data = parse_package_data("WGUPS Package File.csv")
+    for item in package_data.table:
+        print(item)
+    distance_data = parse_distance_data("WGUPS Distance Table.csv")
     print("done")
 
-if __name__ == "__main_":
+if __name__ == "__main__":
     start()
