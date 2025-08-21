@@ -287,7 +287,7 @@ def parse_distance_data(filename):
                     if distance == None or distance == "":
                         break
 
-                    to_node_name = rows[column_index][0]
+                    to_node_name = rows[column_index - 1][0]
 
                     from_node.insert(hash_string(to_node_name), float(distance))
                     
