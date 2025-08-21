@@ -154,9 +154,12 @@ class mail_item():
         self.notes = notes
         self.delivery_status = delivery_status.AT_HUB
         self.delivery_time = None
-        self.required_truck = None
-        self.delivery_restrictions = None
         self.hash = None
+
+        self.required_truck = None
+        self.co_delivery_restrictions = None
+        self.delayed_until = None
+        self.has_incorrect_address = None
         self.parse_notes()
 
     def __str__(self):
@@ -165,9 +168,25 @@ class mail_item():
     def parse_notes(self):
         if self.notes == None:
             return
+        
+        # Example: "Can only be on truck 2"
         truck_restriction = re.search(r"truck\s(\d)+", self.notes)
         if truck_restriction:
             self.required_truck = truck_restriction.group(1)
+        
+        # Example: "Must be delivered with 15, 19"
+        co_delivery_string = self.notes.split("Must be delivered with ")
+        if len(co_delivery_string) == 2:
+            # TODO: rework one-liner to be more readable
+            self.co_delivery_restrictions = [package_ID for package_ID in co_delivery_string[1].split(", ") if package_ID != None and package_ID != ""]
+        
+        # Example: "Delayed on flight---will not arrive to depot until 9:05 am"
+        delay_list = self.notes.split("Delayed on flight---will not arrive to depot until ")
+        if len(delay_list) == 2:
+            self.delayed_until = delay_list[1]
+
+        if "Wrong address listed" in self.notes:
+            self.has_incorrect_address = False
     
     def mark_delivered(self, time):
         self.delivery_time = time
@@ -226,7 +245,57 @@ def parse_package_data(filename):
     return (required_ID_table, my_table)
 
 def parse_distance_data(filename):
-    return None
+    nodes = hash_table()
+
+    if not file_exists(filename):
+        print(f"File: \"{filename}\" does not exist in the current working directory: {os.getcwd()}")
+    
+    try:
+        with open(filename, 'r') as data:
+            reader = csv.reader(data)
+            # there are column labels, so we will skip those
+            reader.next()
+            # because we are creating a hash_table that includes the two-way distances between all addresses,
+            # we will basically have all cells in memory when it's constructed, so it won't be significantly worse to load the whole table at once for parsing
+            rows = list(reader)
+            # we'll parse in reverse because the row labels and column labels differ despite them referring to the same address
+            for row_index in range(len(rows) + 1, -1, -1):
+                distances_from_this_node = hash_table()
+                row = rows[row_index]
+                row_label = row[0]
+                # start from 1 to exclude the row label
+                for column_index in range(1, len(row)):
+                    distance = row[column_index]
+                    if distance == None or distance == "":
+                        break
+
+                    from_node = hash_table()
+                    to_node_name = rows[column_index][0]
+
+                    from_node.insert(to_node_name, int(distance))
+                    
+                nodes.insert(row_label, from_node)
+                print(f"nodes after insert: {nodes}\n")
+
+    except StopIteration:
+        pass
+    except PermissionError:
+        print(f"Permission does not exist to open \"{filename}\"")
+    
+    return nodes
+
+
+"""•  Each truck can carry a maximum of 16 packages, and the ID number of each package is unique.
+•  The trucks travel at an average speed of 18 miles per hour and have an infinite amount of gas with no need to stop.
+•  There are no collisions.
+•  Three trucks and two drivers are available for deliveries. Each driver stays with the same truck as long as that truck is in service.
+•  Drivers leave the hub no earlier than 8:00 a.m., with the truck loaded, and can return to the hub for packages if needed.
+•  The delivery and loading times are instantaneous (i.e., no time passes while at a delivery or when moving packages to a truck at the hub). This time is factored into the calculation of the average speed of the trucks.
+•  There is up to one special note associated with a package.
+•  The delivery address for package #9, Third District Juvenile Court, is wrong and will be corrected at 10:20 a.m. WGUPS is aware that the address is incorrect and will be updated at 10:20 a.m. However, WGUPS does not know the correct address (410 S. State St., Salt Lake City, UT 84111) until 10:20 a.m.
+•  The distances provided in the “WGUPS Distance Table” are equal regardless of the direction traveled.
+•  The day ends when all 40 packages have been delivered."""
+
 
 def start():
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
@@ -234,6 +303,12 @@ def start():
     for item in package_data.table:
         print(item)
     distance_data = parse_distance_data("WGUPS Distance Table.csv")
+
+
+    # TODO: progress time somehow
+    # update package #9 address at a specific time (maybe an "updates" list that we poll each minute that progresses?)
+    # add a user interface for checking package status
+
     print("done")
 
 if __name__ == "__main__":
