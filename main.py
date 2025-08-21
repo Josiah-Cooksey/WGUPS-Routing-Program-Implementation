@@ -278,7 +278,7 @@ def parse_distance_data(filename):
             rows = list(reader)
             # we'll parse in reverse because the row labels and column labels differ despite them referring to the same address
             for row_index in range(len(rows) - 1, -1, -1):
-                distances_from_this_node = hash_table()
+                from_node = hash_table()
                 row = rows[row_index]
                 row_label = row[0]
                 # start from 1 to exclude the row label
@@ -287,7 +287,6 @@ def parse_distance_data(filename):
                     if distance == None or distance == "":
                         break
 
-                    from_node = hash_table()
                     to_node_name = rows[column_index][0]
 
                     from_node.insert(hash_string(to_node_name), float(distance))
