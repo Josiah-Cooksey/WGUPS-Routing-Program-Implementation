@@ -83,7 +83,7 @@ class hash_table():
 
     # only exists for rubric requirement
     # don't use if your key wasn't the id
-    def lookup_by_id(self, item_id):
+    def lookup_by_id(self, item_id: int):
         attempt_count = 0
         item_hash = item_id
         while True:
@@ -101,7 +101,7 @@ class hash_table():
                 return None
     
     
-    def lookup(self, item_hash):
+    def lookup(self, item_hash: int):
         attempt_count = 0
         while True:
             probe_index = self.calculate_probe_index(item_hash, attempt_count)
