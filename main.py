@@ -2,6 +2,7 @@
 import csv
 from enum import Enum
 import os
+import random
 import re
 
 """A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
@@ -42,9 +43,14 @@ G.  Describe what you would do differently, other than the two algorithms identi
 H.  Verify that the data structure used in the solution meets all requirements in the scenario.
 1.  Identify two other data structures that could meet the same requirements in the scenario.
 a.  Describe how each data structure identified in H1 is different from the data structure used in the solution."""
+
+# TODO: I want to pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
+# another approach would be to group packages by address, then try to group groups
+
 class hash_table():
-    def __init__(self, start_size=23, max_load_index=0.5, max_insert_attempts=10, hashing_helper1=2, hashing_helper2=2):
+    def __init__(self, start_size=2, max_load_index=0.5, max_insert_attempts=10, hashing_helper1=2, hashing_helper2=2):
         self.table = [bucket_status.EMPTY for _ in range(start_size)]
+        self.table_size = start_size
         self.max_load_index = max_load_index
         self.max_insert_attempts = max_insert_attempts
         self.hashing_helper1 = hashing_helper1
@@ -52,17 +58,27 @@ class hash_table():
         # the self hash helps with nested hash tables and populating both sides of a relationship
         self.before_hash = None
         self.self_hash = None
+        self.key = self.before_hash
 
     
     def __str__(self):
         result = "".join("\n" + str(item) for item in self.table)
         return result
     
+    # this isn't a proper representation but it helps with debugging
+    def __repr__(self):
+        output = ""
+        if self.before_hash == None:
+            output = "no before_hash"
+        return self.before_hash
+        output += "\n".join(item.before_hash for item in self.table if not isinstance(item, bucket_status)) 
+        return output
+    
 
-    def insert(self, item_hash, some_obj):
+    def insert(self, key, some_obj):
+        key_hash = custom_hash(key)
+        some_obj.self_hash = key_hash
         insertion_attempt_count = 0
-
-        self.resize_table()
 
         while True:
             if insertion_attempt_count > self.max_insert_attempts:
@@ -70,7 +86,7 @@ class hash_table():
                 # to avoid resizing the table many times in a row, we reset the attempt count
                 insertion_attempt_count = 0
 
-            probe_index = self.calculate_probe_index(item_hash, insertion_attempt_count)
+            probe_index = self.calculate_probe_index(key_hash, insertion_attempt_count)
             existing_item = self.table[probe_index]
             # as long as we're not replacing an existing item we can insert here
             if isinstance(existing_item, bucket_status):
@@ -81,14 +97,14 @@ class hash_table():
     
 
     def calculate_probe_index(self, item_hash, attempt_count):
-        return (item_hash + (self.hashing_helper1 * attempt_count) + (self.hashing_helper2 * pow(attempt_count, 2))) % len(self.table)
+        return (item_hash + (self.hashing_helper1 * attempt_count) + (self.hashing_helper2 * pow(attempt_count, 2))) % self.table_size
 
 
     # only exists for rubric requirement
     # don't use if your key wasn't the id
     def lookup_by_id(self, item_id: int):
         attempt_count = 0
-        item_hash = item_id
+        item_hash = custom_hash(item_id)
         while True:
             probe_index = self.calculate_probe_index(item_hash, attempt_count)
             item = self.table[probe_index]
@@ -104,10 +120,11 @@ class hash_table():
                 return None
     
     
-    def lookup(self, item_hash: int):
+    def lookup(self, key):
+        key_hash = custom_hash(key)
         attempt_count = 0
         while True:
-            probe_index = self.calculate_probe_index(item_hash, attempt_count)
+            probe_index = self.calculate_probe_index(key_hash, attempt_count)
             item = self.table[probe_index]
             # it's guaranteed to either be a mail_item or a bucket_status
             # so we either find it
@@ -126,31 +143,36 @@ class hash_table():
         if not override and self.calculate_load_index() < self.max_load_index:
             return
         
-        new_size = 2 * len(self.table)
+        new_size = 2 * self.table_size
+        self.table_size = new_size
         new_table = [bucket_status.EMPTY for _ in range(new_size)]
         # from what I've read, this Pythonic swap is O(1) because we're reassigning references
         self.table, new_table = new_table, self.table
-        # rehashes existing items because otherwise they won't be found in the new table
+        # reinserts existing items at newly-determined index because otherwise they won't be found in the new table
         for item in new_table:
-            if isinstance(item, mail_item):
-                self.insert(item.hash, item)
+            if not isinstance(item, bucket_status):
+                self.insert(item.key, item)
     
 
     def calculate_load_index(self):
-        if len(self.table) == 0:
+        if self.table_size == 0:
             return 1
         
         counter = 0
         for item in self.table:
             if not isinstance(item, bucket_status):
                 counter += 1
-        return counter/len(self.table)
+        return counter/self.table_size
 
 
-def hash_string(some_string):
+def custom_hash(string_or_numeric: int | str | float):
     result = 0
-    for index, char in enumerate(some_string):
-        result += (index + 1) * ord(char)
+    if isinstance(string_or_numeric, str):
+        for index, char in enumerate(string_or_numeric):
+            result += (index + 1) * ord(char)
+    else:
+        generator = random.Random(int(string_or_numeric))
+        return generator.randint(0, 9999999999)
         
     return result
 
@@ -175,6 +197,7 @@ class mail_item():
         self.notes = notes
         self.delivery_status = delivery_status.AT_HUB
         self.delivery_time = None
+        self.key = None
         self.hash = None
 
         self.required_truck = None
@@ -226,9 +249,21 @@ class delivery_status(Enum):
 
 
 class distance_node():
-    def __init__(self, before_hash=None, distance: float=None):
+    def __init__(self, before_hash=None, distance: float=None, key=None):
         self.before_hash = before_hash
         self.distance = distance
+        self.self_hash = None
+        if key == None:
+            self.key = self.before_hash
+        else:
+            self.key = key
+
+    def __repr__(self):
+        return f"{self.distance} miles to {self.before_hash}"
+
+
+def simplify_address(address: str):
+    return address.replace("South", "S").replace("North", "N").replace("East", "E").replace("West", "W")
 
 
 def file_exists(filename):
@@ -256,12 +291,11 @@ def parse_package_data(filename):
             while(True):
                 # Package ID	Address	City 	State	Zip	Delivery Deadline	Weight KILO	page 1 of 1PageSpecial Notes 
                 row = next(reader)
-                item = mail_item(row[0].strip(), row[1].strip(), row[2].strip(), row[3].strip(), row[4].strip(), row[5].strip(), row[6].strip(), row[7].strip())
-                item.hash = item.id
-                required_ID_table.insert(item.hash, item)
-                item.hash = hash_string(item.address)
-                my_table.insert(item.hash, item)
-                print(f"table after insert: {my_table}\n")
+                item = mail_item(row[0].strip(), simplify_address(row[1].strip()), row[2].strip(), row[3].strip(), row[4].strip(), row[5].strip(), row[6].strip(), row[7].strip())
+                item.key = item.id
+                required_ID_table.insert(item.key, item)
+                item.key = item.address
+                my_table.insert(item.key, item)
 
     except StopIteration:
         pass
@@ -281,37 +315,39 @@ def parse_distance_data(filename):
     try:
         with open(filename, 'r') as data:
             reader = csv.reader(data)
-            # there are column labels, so we will skip those
+            # there are column labels which we will skip
             next(reader)
             # because we are creating a hash_table that includes the two-way distances between all addresses,
             # we will basically have all cells in memory when it's constructed, so it won't be significantly worse to load the whole table at once for parsing
             rows = list(reader)
-            # we'll parse in reverse because the row labels and column labels differ despite them referring to the same address
-            for row_index in range(len(rows) - 1, -1, -1):
+            for row_index in range(len(rows)):
                 from_node = hash_table()
                 row = rows[row_index]
                 # the row labels have the address and the zip code
                 split_row = row[0].strip().split("\n")
-                street_address = split_row[0]
+                street_address = simplify_address(split_row[0])
 
                 # it may be necessary later to hash based on address + zip code for uniqueness
                 zip_code_label = None
                 if len(split_row) == 2:
                     zip_code_label = split_row[1]
-
-                from_node.before_hash = street_address
-                from_node.self_hash = hash_string(street_address)
+                
+                from_node_name = street_address
+                from_node.before_hash = from_node_name
+                from_node.key = from_node.before_hash
+                from_node.self_hash = custom_hash(from_node_name)
 
                 # start from 1 to exclude the row label
-                for column_index in range(1, len(row)):
-                    # TODO: fix parsing and insertion of distances
+                # also, because (aside from the label) the Nth row has N cells filled from left to right, we can skip empty cells easily by referencing the row index 
+                for column_index in range(1, row_index + 2):
+                    # TODO: fix insertion of distances
                     distance = row[column_index]
                     if distance == None or distance == "":
                         break
                     
                     # the row labels have the address and the zip code
                     split_row_2 = rows[column_index - 1][0].strip().split("\n")
-                    street_address_2 = split_row_2[0]
+                    street_address_2 = simplify_address(split_row_2[0])
 
                     # it may be necessary later to hash based on address + zip code for uniqueness
                     zip_code_label_2 = None
@@ -319,17 +355,21 @@ def parse_distance_data(filename):
                         zip_code_label_2 = split_row[1]
                     to_node_name = street_address_2
 
-                    from_node.insert(hash_string(to_node_name), distance_node(to_node_name, float(distance)))
+                    from_node.insert(to_node_name, distance_node(to_node_name, float(distance)))
+                    # when populating the other side of the relationship between nodes, we can skip self-relationships
+                    if from_node_name != to_node_name:
+                        # furthermore, row N only ever contains cells for columns <= N, so we don't need to check if the other node exists to insert
+                        holder = nodes.lookup(to_node_name)
+                        holder.insert(from_node_name, distance_node(from_node_name, float(distance)))
                     
-                nodes.insert(hash_string(street_address), from_node)
-                print(f"nodes after insert: {nodes}\n")
+                nodes.insert(street_address, from_node)
 
     except StopIteration:
         pass
     except PermissionError:
         print(f"Permission does not exist to open \"{filename}\"")
 
-    # because the table only includes one side of each relationship, we'll populate the other side
+    """# because the table only includes one side of each relationship, we'll populate the other side
     for from_node in nodes.table:
         if isinstance(from_node, hash_table):
             for to_node in from_node.table:
@@ -339,7 +379,7 @@ def parse_distance_data(filename):
                     other_side = nodes.lookup(hash_string(to_node.before_hash))
                     # we don't want duplicates
                     if other_side.lookup(from_node.self_hash) == None:
-                        other_side.insert(from_node.self_hash, distance_node(from_node.before_hash, to_node.distance))
+                        other_side.insert(from_node.self_hash, distance_node(from_node.before_hash, to_node.distance))"""
 
     return nodes
 
@@ -364,8 +404,9 @@ def start():
     for item in package_data.table:
         # print(item)
         if isinstance(item, mail_item):
-            something = distance_data.lookup(hash_string(item.address)).lookup(hash_string("HUB"))
-            print(f"distance from HUB to {item.address}: {something}")
+            hub_distances = distance_data.lookup("HUB")
+            result = hub_distances.lookup(item.address)
+            print(f"distance from HUB to {item.address}: {result.distance}")
 
     # TODO: progress time somehow
     # update package #9 address at a specific time (maybe an "updates" list that we poll each minute that progresses?)
