@@ -81,10 +81,28 @@ class hash_table():
         return (item_hash + (self.hashing_helper1 * attempt_count) + (self.hashing_helper2 * pow(attempt_count, 2))) % len(self.table)
 
 
-    # I only take the item_id as the input because it's a rubric requirement
-    def lookup(self, item_id):
+    # only exists for rubric requirement
+    # don't use if your key wasn't the id
+    def lookup_by_id(self, item_id):
         attempt_count = 0
-        item_hash = hash(item_id)
+        item_hash = item_id
+        while True:
+            probe_index = self.calculate_probe_index(item_hash, attempt_count)
+            item = self.table[probe_index]
+            # it's guaranteed to either be a mail_item or a bucket_status
+            # so we either find it
+            if isinstance(item, mail_item):
+                return item
+            # continue searching
+            elif item == bucket_status.DELETED:
+                attempt_count += 1
+            # or determine that it doesn't exist
+            else:
+                return None
+    
+    
+    def lookup(self, item_hash):
+        attempt_count = 0
         while True:
             probe_index = self.calculate_probe_index(item_hash, attempt_count)
             item = self.table[probe_index]
@@ -172,7 +190,7 @@ class mail_item():
         # Example: "Can only be on truck 2"
         truck_restriction = re.search(r"truck\s(\d)+", self.notes)
         if truck_restriction:
-            self.required_truck = truck_restriction.group(1)
+            self.required_truck = int(truck_restriction.group(1))
         
         # Example: "Must be delivered with 15, 19"
         co_delivery_string = self.notes.split("Must be delivered with ")
@@ -254,12 +272,12 @@ def parse_distance_data(filename):
         with open(filename, 'r') as data:
             reader = csv.reader(data)
             # there are column labels, so we will skip those
-            reader.next()
+            next(reader)
             # because we are creating a hash_table that includes the two-way distances between all addresses,
             # we will basically have all cells in memory when it's constructed, so it won't be significantly worse to load the whole table at once for parsing
             rows = list(reader)
             # we'll parse in reverse because the row labels and column labels differ despite them referring to the same address
-            for row_index in range(len(rows) + 1, -1, -1):
+            for row_index in range(len(rows) - 1, -1, -1):
                 distances_from_this_node = hash_table()
                 row = rows[row_index]
                 row_label = row[0]
@@ -272,9 +290,9 @@ def parse_distance_data(filename):
                     from_node = hash_table()
                     to_node_name = rows[column_index][0]
 
-                    from_node.insert(to_node_name, int(distance))
+                    from_node.insert(hash_string(to_node_name), float(distance))
                     
-                nodes.insert(row_label, from_node)
+                nodes.insert(hash_string(row_label), from_node)
                 print(f"nodes after insert: {nodes}\n")
 
     except StopIteration:
