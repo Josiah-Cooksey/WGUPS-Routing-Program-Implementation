@@ -166,6 +166,8 @@ class mail_item():
         if self.notes == None:
             return
         truck_restriction = re.search(r"truck\s(\d)+", self.notes)
+        if truck_restriction:
+            self.required_truck = truck_restriction.group(1)
     
     def mark_delivered(self, time):
         self.delivery_time = time
