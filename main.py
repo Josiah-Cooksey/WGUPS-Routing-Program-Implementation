@@ -49,6 +49,9 @@ class hash_table():
         self.max_insert_attempts = max_insert_attempts
         self.hashing_helper1 = hashing_helper1
         self.hashing_helper2 = hashing_helper2
+        # the self hash helps with nested hash tables and populating both sides of a relationship
+        self.before_hash = None
+        self.self_hash = None
 
     
     def __str__(self):
@@ -221,6 +224,13 @@ class delivery_status(Enum):
     ON_TRUCK = 3
     DELIVERED = 4
 
+
+class distance_node():
+    def __init__(self, before_hash=None, distance: float=None):
+        self.before_hash = before_hash
+        self.distance = distance
+
+
 def file_exists(filename):
     try:
         with open(filename, 'r') as test:
@@ -280,25 +290,57 @@ def parse_distance_data(filename):
             for row_index in range(len(rows) - 1, -1, -1):
                 from_node = hash_table()
                 row = rows[row_index]
-                row_label = row[0].strip()
+                # the row labels have the address and the zip code
+                split_row = row[0].strip().split("\n")
+                street_address = split_row[0]
+
+                # it may be necessary later to hash based on address + zip code for uniqueness
+                zip_code_label = None
+                if len(split_row) == 2:
+                    zip_code_label = split_row[1]
+
+                from_node.before_hash = street_address
+                from_node.self_hash = hash_string(street_address)
+
                 # start from 1 to exclude the row label
                 for column_index in range(1, len(row)):
+                    # TODO: fix parsing and insertion of distances
                     distance = row[column_index]
                     if distance == None or distance == "":
                         break
-
-                    to_node_name = rows[column_index - 1][0].strip ()
-
-                    from_node.insert(hash_string(to_node_name), float(distance))
                     
-                nodes.insert(hash_string(row_label), from_node)
+                    # the row labels have the address and the zip code
+                    split_row_2 = rows[column_index - 1][0].strip().split("\n")
+                    street_address_2 = split_row_2[0]
+
+                    # it may be necessary later to hash based on address + zip code for uniqueness
+                    zip_code_label_2 = None
+                    if len(split_row_2) == 2:
+                        zip_code_label_2 = split_row[1]
+                    to_node_name = street_address_2
+
+                    from_node.insert(hash_string(to_node_name), distance_node(to_node_name, float(distance)))
+                    
+                nodes.insert(hash_string(street_address), from_node)
                 print(f"nodes after insert: {nodes}\n")
 
     except StopIteration:
         pass
     except PermissionError:
         print(f"Permission does not exist to open \"{filename}\"")
-    
+
+    # because the table only includes one side of each relationship, we'll populate the other side
+    for from_node in nodes.table:
+        if isinstance(from_node, hash_table):
+            for to_node in from_node.table:
+                if isinstance(to_node, distance_node) and from_node.before_hash != to_node.before_hash:
+                    if isinstance(to_node.before_hash, int):
+                        pass
+                    other_side = nodes.lookup(hash_string(to_node.before_hash))
+                    # we don't want duplicates
+                    if other_side.lookup(from_node.self_hash) == None:
+                        other_side.insert(from_node.self_hash, distance_node(from_node.before_hash, to_node.distance))
+
     return nodes
 
 
@@ -322,7 +364,7 @@ def start():
     for item in package_data.table:
         # print(item)
         if isinstance(item, mail_item):
-            something = distance_data.lookup(hash_string("HUB")).lookup(hash_string(item.address))
+            something = distance_data.lookup(hash_string(item.address)).lookup(hash_string("HUB"))
             print(f"distance from HUB to {item.address}: {something}")
 
     # TODO: progress time somehow
