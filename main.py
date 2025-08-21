@@ -91,7 +91,7 @@ class hash_table():
             item = self.table[probe_index]
             # it's guaranteed to either be a mail_item or a bucket_status
             # so we either find it
-            if isinstance(item, mail_item):
+            if not isinstance(item, bucket_status):
                 return item
             # continue searching
             elif item == bucket_status.DELETED:
@@ -108,7 +108,7 @@ class hash_table():
             item = self.table[probe_index]
             # it's guaranteed to either be a mail_item or a bucket_status
             # so we either find it
-            if isinstance(item, mail_item):
+            if not isinstance(item, bucket_status):
                 return item
             # continue searching
             elif item == bucket_status.DELETED:
@@ -317,10 +317,13 @@ def parse_distance_data(filename):
 def start():
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
     ID_package_table, package_data = parse_package_data("WGUPS Package File.csv")
+    
+    distance_data = parse_distance_data("WGUPS Distance Table.csv")
     for item in package_data.table:
         print(item)
-    distance_data = parse_distance_data("WGUPS Distance Table.csv")
-
+        if isinstance(item, mail_item):
+            something  = distance_data.lookup(hash_string(item.address))
+            print(f"distance from HUB to {item.address}: {distance_data.lookup(hash_string(item.address)).lookup}")
 
     # TODO: progress time somehow
     # update package #9 address at a specific time (maybe an "updates" list that we poll each minute that progresses?)
