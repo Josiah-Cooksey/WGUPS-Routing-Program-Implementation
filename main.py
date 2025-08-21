@@ -246,7 +246,7 @@ def parse_package_data(filename):
             while(True):
                 # Package ID	Address	City 	State	Zip	Delivery Deadline	Weight KILO	page 1 of 1PageSpecial Notes 
                 row = next(reader)
-                item = mail_item(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+                item = mail_item(row[0].strip(), row[1].strip(), row[2].strip(), row[3].strip(), row[4].strip(), row[5].strip(), row[6].strip(), row[7].strip())
                 item.hash = item.id
                 required_ID_table.insert(item.hash, item)
                 item.hash = hash_string(item.address)
@@ -280,14 +280,14 @@ def parse_distance_data(filename):
             for row_index in range(len(rows) - 1, -1, -1):
                 from_node = hash_table()
                 row = rows[row_index]
-                row_label = row[0]
+                row_label = row[0].strip()
                 # start from 1 to exclude the row label
                 for column_index in range(1, len(row)):
                     distance = row[column_index]
                     if distance == None or distance == "":
                         break
 
-                    to_node_name = rows[column_index - 1][0]
+                    to_node_name = rows[column_index - 1][0].strip ()
 
                     from_node.insert(hash_string(to_node_name), float(distance))
                     
@@ -320,10 +320,10 @@ def start():
     
     distance_data = parse_distance_data("WGUPS Distance Table.csv")
     for item in package_data.table:
-        print(item)
+        # print(item)
         if isinstance(item, mail_item):
-            something  = distance_data.lookup(hash_string(item.address))
-            print(f"distance from HUB to {item.address}: {distance_data.lookup(hash_string(item.address)).lookup}")
+            something = distance_data.lookup(hash_string("HUB")).lookup(hash_string(item.address))
+            print(f"distance from HUB to {item.address}: {something}")
 
     # TODO: progress time somehow
     # update package #9 address at a specific time (maybe an "updates" list that we poll each minute that progresses?)
