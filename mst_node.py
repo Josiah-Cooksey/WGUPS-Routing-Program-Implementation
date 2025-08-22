@@ -10,6 +10,9 @@ class MSTNode():
     def add_node(self, node: MSTNode, distance):
         self.nodes.insert(node, distance)
     
+    def remove_node(self, node: MSTNode):
+        return self.nodes.remove(node)
+    
     def __str__(self):
         return f"MSTNode({self.label})"
     
