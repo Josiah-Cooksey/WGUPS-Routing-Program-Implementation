@@ -59,7 +59,7 @@ class MailItem():
             self.update_status(DeliveryStatus.DELAYED)
     
     def update_status(self, status:DeliveryStatus, time: int=0):
-        self.status_log.append([time, status])
+        self.status_log.append((time, status))
         self.delivery_status = status
         match status:
             case DeliveryStatus.DELAYED:
