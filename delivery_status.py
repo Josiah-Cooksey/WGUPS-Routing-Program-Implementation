@@ -2,9 +2,12 @@ from enum import Enum
 
 class DeliveryStatus(Enum):
     # refers to a package not being available for delivery at the hub yet
-    DELAYED = 1
+    DELAYED = "Delayed"
     # awaiting delivery
-    AT_HUB = 2
+    AT_HUB = "At Hub"
     # awaiting delivery
-    ON_TRUCK = 3
-    DELIVERED = 4
+    ON_TRUCK = "En Route"
+    DELIVERED = "Delivered"
+
+    def __str__(self):
+        return self.value
