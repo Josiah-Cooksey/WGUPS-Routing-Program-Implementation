@@ -1,4 +1,5 @@
 import random
+from datetime import time
 
 def custom_hash(string_or_numeric: int | str | float):
     result = 0
@@ -29,3 +30,11 @@ def file_exists(filename):
         return True
     except FileNotFoundError:
         return False
+
+
+def minutes_to_time(m):
+    h = m // 60
+    return time(h, m)
+
+def time_to_minutes(t: time):
+    return t.hour * 60 + t.minute
