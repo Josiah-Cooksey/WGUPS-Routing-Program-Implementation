@@ -4,7 +4,7 @@ from enum import Enum
 import math
 import os
 from delivery_driver import DeliveryDriver
-from distance_node import DistanceNode
+from dart_node import DartNode
 from hash_table import HashTable
 from mail_item import MailItem
 from truck import Truck
@@ -93,12 +93,12 @@ def parse_distance_data(filename):
                         zip_code_label_2 = split_row[1]
                     to_node_name = street_address_2
 
-                    from_node.insert(to_node_name, DistanceNode(to_node_name, float(distance)))
+                    from_node.insert(to_node_name, DartNode(to_node_name, float(distance)))
                     # when populating the other side of the relationship between nodes, we can skip self-relationships
                     if from_node_name != to_node_name:
                         # furthermore, row N only ever contains cells for columns <= N, so we don't need to check if the other node exists to insert
                         holder = nodes.lookup_exact(to_node_name)
-                        holder.insert(from_node_name, DistanceNode(from_node_name, float(distance)))
+                        holder.insert(from_node_name, DartNode(from_node_name, float(distance)))
                     
                 nodes.insert(street_address, from_node)
 
@@ -133,6 +133,7 @@ def generate_MST(truck: Truck, distance_data):
             minimum_spanning_tree.append(new_vertex)
         
     truck.minimum_spanning_tree = minimum_spanning_tree
+    truck.update_status(minimum_spanning_tree[0])
 
 
 """A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
@@ -244,7 +245,7 @@ def start():
         """LOAD PACKAGES"""
         for truck in trucks:
             # whenever the truck is at the hub we can safely assume that we should attempt to load packages 
-            if truck.at_hub and len(truck.packages) < truck.package_capacity:
+            if truck.current_address == "HUB" and len(truck.packages) < truck.package_capacity:
                 # TODO: pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
                 # another approach would be to group packages by address, then try to group groups
 
@@ -283,15 +284,18 @@ def start():
         # can't dispatch trucks until 8:00 am (8 * 60 = 480 minutes)
         if current_time_minutes >= start_time_minutes:
             for truck in trucks:
-                if len(truck.packages) >= 1 and truck.minimum_spanning_tree == None:
-                    generate_MST(truck, distance_data)
+                if len(truck.packages) >= 1:
+                    if truck.minimum_spanning_tree == None:
+                        generate_MST(truck, distance_data)
+                    truck.move()
+                    
+                
         # TODO: progress time somehow and log events that happen at each minute
         # for mail_items we can store the delivery_time using the update_status function
-        # for trucks we'll need 
+        # for trucks we'll need to keep track of what time they reached each node to be able to tally mileage at that point
         for key, package in package_data:
             # print(package.get_status(current_time_minutes))
             print(package.get_status(current_time_minutes))
-            break
         # it may be easiest to progress 1 minute at a time
         current_time_minutes += 1
 
