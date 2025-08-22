@@ -173,11 +173,10 @@ def start():
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
     ID_package_table, package_data = parse_package_data("WGUPS Package File.csv")
     
-    for item in package_data.table:
-        if isinstance(item, MailItem):
-            hub_distances = distance_data.lookup("HUB")
-            result = hub_distances.lookup(item.address)
-            print(f"distance from HUB to {item.address}: {result.distance}")
+    for item in package_data:
+        hub_distances = distance_data.lookup("HUB")
+        result = hub_distances.lookup(item.address)
+        print(f"distance from HUB to {item.address}: {result.distance}")
     
     for truck_number in range(truck_count):
         trucks.append(Truck(truck_number + 1))
@@ -190,15 +189,15 @@ def start():
     # it may be easiest to progress 1 minute at a time
     current_time_minutes = 0
     # this could be incremented dynamically whenever a new package was added by an API if that functionality was ever implemented
-    total_package_count = sum(1 for item in package_data.table if isinstance(item, MailItem))
+    total_package_count = sum(1 for item in package_data)
     packages_on_trucks_count = 0
 
     all_packages_delivered = False
 
-    restricted_packages = HashTable()
-    for package in package_data.table:
+    truck_restricted_packages = HashTable()
+    for package in package_data:
         if package.required_truck != None:
-            restricted_packages.insert(package.required_truck, package)
+            truck_restricted_packages.insert(package.required_truck, package)
 
 
     while not all_packages_delivered:
@@ -209,7 +208,7 @@ def start():
                 # another approach would be to group packages by address, then try to group groups
 
                 # we prioritise packages restricted to this truck
-                while package := restricted_packages.lookup(truck.id) != None and package.can_be_delivered():
+                while package := truck_restricted_packages.lookup(truck.id) != None and package.can_be_delivered():
                     truck.packages.append(package)
                 # then packages that must be delivered together
                 for package in truck.packages:
