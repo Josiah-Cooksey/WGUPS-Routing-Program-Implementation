@@ -1,8 +1,8 @@
 from delivery_driver import DeliveryDriver
 
 class Truck():
-    def __init__(self, id_number, driver: DeliveryDriver=None, package_capacity: int=16, average_speed: int=18, mileage: int=0):
-        self.id_number = id_number
+    def __init__(self, id, driver: DeliveryDriver=None, package_capacity: int=16, average_speed: int=18, mileage: int=0):
+        self.id = id
         self.package_capacity = package_capacity
         self.average_speed = average_speed
         self.mileage = mileage
