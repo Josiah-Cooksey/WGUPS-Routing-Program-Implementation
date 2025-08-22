@@ -24,6 +24,9 @@ class MailItem():
 
     def __str__(self):
         return f"MailItem({self.id}, {self.address}, {self.city}, {self.state}, {self.zip}, {self.deadline}, {self.weight})"
+    
+    def __repr__(self):
+        return f"MailItem({self.id}, {self.address}, {self.city}, {self.state}, {self.zip}, {self.deadline}, {self.weight})"
 
     def parse_notes(self):
         if self.notes == None:
