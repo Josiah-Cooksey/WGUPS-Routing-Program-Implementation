@@ -74,6 +74,7 @@ class HashTable():
                 return None
     
     
+    # TODO: make address lookups case-insensitive (probably by uncapitalising all characters of addresses or adjusting the hashing function)
     def lookup(self, key):
         key_hash = custom_hash(key)
         attempt_count = 0
