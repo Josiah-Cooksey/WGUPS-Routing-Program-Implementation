@@ -7,3 +7,6 @@ class BucketStatus(Enum):
     
     def __repr__(self):
         return f"BucketStatus.{self.name}"
+    
+    def __len__(self):
+        return 1
