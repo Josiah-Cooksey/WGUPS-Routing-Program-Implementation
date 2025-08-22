@@ -55,5 +55,5 @@ class MailItem():
         self.delivery_time = time
         self.delivery_status = DeliveryStatus.DELIVERED
     
-    def can_be_loaded(self):
+    def can_be_delivered(self):
         return not self.delayed_until and not self.has_incorrect_address and self.delivery_status == DeliveryStatus.AT_HUB
