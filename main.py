@@ -1,6 +1,7 @@
 # Developed by Josiah Cooksey; WGU Student ID: 011030459
 import csv
 from enum import Enum
+import math
 import os
 import random
 import re
@@ -11,6 +12,7 @@ from hash_table import HashTable
 from mail_item import MailItem
 from truck import Truck
 from utils import *
+from mst_node import MSTNode
 
 
 # in an ideal world this data would already be in a database that we could query because spreadsheets are unsustainable
@@ -98,7 +100,7 @@ def parse_distance_data(filename):
                     # when populating the other side of the relationship between nodes, we can skip self-relationships
                     if from_node_name != to_node_name:
                         # furthermore, row N only ever contains cells for columns <= N, so we don't need to check if the other node exists to insert
-                        holder = nodes.lookup(to_node_name)
+                        holder = nodes.lookup_exact(to_node_name)
                         holder.insert(from_node_name, DistanceNode(from_node_name, float(distance)))
                     
                 nodes.insert(street_address, from_node)
@@ -109,6 +111,31 @@ def parse_distance_data(filename):
         print(f"Permission does not exist to open \"{filename}\"")
 
     return nodes
+
+
+def generate_MST(truck: Truck, distance_data):
+    minimum_spanning_tree = [MSTNode("HUB")]
+    # first we need to find out what nodes we need to connect
+    for package in truck.packages:
+        new_vertex = MSTNode(package.address)
+        if new_vertex not in minimum_spanning_tree:
+            smallest_is_to_this_vertex = None
+            smallest_distance = math.inf
+            new_vertex_distances = distance_data.lookup_exact(new_vertex.label)
+            for existing_vertex in minimum_spanning_tree:
+                distance = new_vertex_distances.lookup_exact(existing_vertex.label).distance
+                if distance < smallest_distance:
+                    smallest_distance = distance
+                    smallest_is_to_this_vertex = existing_vertex
+            
+            new_vertex.add_node(smallest_is_to_this_vertex, distance)
+            # makes sure that there's an edge connection on each end
+            smallest_is_to_this_vertex.add_node(new_vertex, distance)
+
+            
+            minimum_spanning_tree.append(new_vertex)
+        
+    truck.minimum_spanning_tree = minimum_spanning_tree
 
 
 """A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
@@ -168,14 +195,18 @@ def start():
     truck_count = 3
     drivers = []
     trucks = []
+    # when trucks can depart hub after
+    start_time_minutes = 480
+    current_time_minutes = 0
+    all_packages_delivered = False
 
     distance_data = parse_distance_data("WGUPS Distance Table.csv")
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
     ID_package_table, package_data = parse_package_data("WGUPS Package File.csv")
     
     for key, item in package_data:
-        hub_distances = distance_data.lookup("HUB")
-        result = hub_distances.lookup(key)
+        hub_distances = distance_data.lookup_exact("HUB")
+        result = hub_distances.lookup_exact(key)
         print(f"distance from HUB to {item.address}: {result.distance}")
     
     for truck_number in range(truck_count):
@@ -186,17 +217,13 @@ def start():
         trucks[driver_number].driver = d
         drivers.append(d)
     
-    # it may be easiest to progress 1 minute at a time
-    current_time_minutes = 0
     # this could be incremented dynamically whenever a new package was added by an API if that functionality was ever implemented
     total_package_count = sum(1 for item in package_data)
-    packages_on_trucks_count = 0
-
-    all_packages_delivered = False
 
     truck_restricted_packages = HashTable()
     for key, package in package_data:
         if package.required_truck != None:
+            truck_restricted_packages.insert(package.required_truck, package)
             # TODO: handle the fact that keys are currently mutable
             # because for this project we know that the address will change, if we force immutable keys that won't work unless we remove and reinsert
             # and for that we'd need a lookup function that doesn't just return the first match
@@ -220,28 +247,57 @@ def start():
             
 
     
-
+    
     while not all_packages_delivered:
+        """LOAD PACKAGES"""
         for truck in trucks:
             # whenever the truck is at the hub we can safely assume that we should attempt to load packages 
             if truck.at_hub and len(truck.packages) < truck.package_capacity:
                 # TODO: pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
                 # another approach would be to group packages by address, then try to group groups
 
+
+                # TODO: this currently doesn't take into account that we'd need to confirm that all loaded packages in the end are loaded with all members of their restriction group
                 # we prioritise packages restricted to this truck
-                while package := truck_restricted_packages.lookup(truck.id) != None and package.can_be_delivered():
-                    truck.packages.append(package)
-                # then packages that must be delivered together
-                for package in truck.packages:
+                _truck_restricted_packages = truck_restricted_packages.lookup_all(truck.id)
+                for package in _truck_restricted_packages:
                     if package.can_be_delivered():
                         truck.packages.append(package)
-                # and finally packages grouped by address
-            
-        # can't dispatch trucks until after 8:00 am (8 * 60 = 480 minutes)
+                # then packages that must be delivered together (ASSUMES THAT CO-DELIVERY RESTRICTIONS ARE LISTED ON ALL PACKAGES IN RESTRICTION GROUP)
+                codelivery_packages_to_load = []
+                codelivery_packages_to_unload = []
+                for loaded_package in truck.packages:
+                    # because some packages that need to be delivered together may not all be ready for delivery
+                    # we will first find all of them and load them into a buffer
+                    loading_buffer = []
+                    all_buffered_packages_can_be_delivered = True
+                    if loaded_package.co_delivery_restrictions != None:
+                        for other_package in loaded_package.co_delivery_restrictions:
+                            if not other_package.can_be_delivered():
+                                all_buffered_packages_can_be_delivered = False
+                                # if all grouped packages aren't deliverable, then we need to unload the already-loaded package of that group
+                                codelivery_packages_to_unload.append(loaded_package)
+                                break
+                            loading_buffer.append(other_package)
 
+                    if all_buffered_packages_can_be_delivered:
+                        codelivery_packages_to_load.extend(loading_buffer)
+
+                for r in codelivery_packages_to_unload:
+                    truck.packages.remove(r)
+                truck.packages.extend(codelivery_packages_to_load)
+                # and finally packages grouped by address
+
+        # can't dispatch trucks until after 8:00 am (8 * 60 = 480 minutes)
+        if current_time_minutes > start_time_minutes:
+            for truck in trucks:
+                if len(truck.packages) >= 1:
+                    generate_MST(truck, distance_data)
         # TODO: progress time somehow and log events that happen at each minute
         # for mail_items we can store the delivery_time using the mark_delivered function
         # for trucks we'll need 
+        
+        # it may be easiest to progress 1 minute at a time
         current_time_minutes += 1
 
     # update package #9 address at a specific time (maybe an "updates" list that we poll each minute that progresses?)
