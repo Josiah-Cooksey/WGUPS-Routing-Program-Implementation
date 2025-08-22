@@ -36,6 +36,31 @@ class HashTable():
         return output
     
 
+    def remove(self, key):
+        attempt_count = 0
+        key_hash = custom_hash(key)
+        while True:
+            probe_index = self.calculate_probe_index(key_hash, attempt_count)
+            item = self._table[probe_index]
+            
+            # we either find it
+            if len(item) == 2:
+                found_key, found_value = item
+                # needs to find an exact match
+                if found_key == key:
+                    self._table[probe_index] = BucketStatus.DELETED
+                    return True
+            # continue searching
+            elif item == BucketStatus.DELETED:
+                pass
+            # or determine that it doesn't exist
+            else:
+                return False
+            
+            attempt_count += 1
+
+
+
     def insert(self, key, some_obj):
         key_hash = custom_hash(key)
         try:
