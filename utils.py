@@ -2,6 +2,12 @@ import random
 
 def custom_hash(string_or_numeric: int | str | float):
     result = 0
+
+    try:
+        string_or_numeric = str(string_or_numeric)
+    except:
+        pass
+
     if isinstance(string_or_numeric, str):
         for index, char in enumerate(string_or_numeric):
             result += (index + 1) * ord(char)
