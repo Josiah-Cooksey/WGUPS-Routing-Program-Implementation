@@ -15,14 +15,15 @@ class HashTable():
         self.key = self.before_hash
         self._length = 0
 
+    # returns key, value pairs
     def __iter__(self):
-        return (item for item in self._table if not isinstance(item, BucketStatus))
+        return (item for item in self._table if len(item) == 2)
     
     def __len__(self):
         return self._length
     
     def __str__(self):
-        result = "".join("\n" + str(item) for item in self._table)
+        result = "".join("\n" + str(item) for item in self._table if len(item) == 2)
         return result
     
     # this isn't a proper representation but it helps with debugging
@@ -50,7 +51,7 @@ class HashTable():
             existing_item = self._table[probe_index]
             # as long as we're not replacing an existing item we can insert here
             if isinstance(existing_item, BucketStatus):
-                self._table[probe_index] = some_obj
+                self._table[probe_index] = (key, some_obj)
                 self._length += 1
                 return
             
@@ -69,17 +70,21 @@ class HashTable():
         while True:
             probe_index = self.calculate_probe_index(item_hash, attempt_count)
             item = self._table[probe_index]
-            # it's guaranteed to either be a MailItem or a BucketStatus
-            # so we either find it
-            if not isinstance(item, BucketStatus):
-                return item
+            
+            # we either find it
+            if len(item) == 2:
+                found_key, found_value = item
+                # needs to return only an exact match
+                if found_key == item_id:
+                    return found_value
             # continue searching
             elif item == BucketStatus.DELETED:
-                attempt_count += 1
+                pass
             # or determine that it doesn't exist
             else:
                 return None
-    
+            
+            attempt_count += 1
     
     # TODO: make address lookups case-insensitive (probably by uncapitalising all characters of addresses or adjusting the hashing function)
     def lookup(self, key):
@@ -88,16 +93,43 @@ class HashTable():
         while True:
             probe_index = self.calculate_probe_index(key_hash, attempt_count)
             item = self._table[probe_index]
-            # it's guaranteed to either be a MailItem or a BucketStatus
-            # so we either find it
-            if not isinstance(item, BucketStatus):
-                return item
+            
+            # we either return the first match
+            if len(item) == 2:
+                found_key, found_value = item
+                return found_value
             # continue searching
             elif item == BucketStatus.DELETED:
                 attempt_count += 1
             # or determine that it doesn't exist
             else:
                 return None
+            
+    # this allows us to retrieve all elements that match the key
+    def lookup_all(self, key):
+        results = []
+        probed_indexes = []
+        key_hash = custom_hash(key)
+        attempt_count = 0
+        while True:
+            probe_index = self.calculate_probe_index(key_hash, attempt_count)
+            item = self._table[probe_index]
+            if probe_index in probed_indexes:
+                return results
+            
+            if len(item) == 2:
+                found_key, found_value = item
+                if found_key == key:
+                    results.append(found_value)
+            # continue searching
+            elif item == BucketStatus.DELETED:
+                pass
+            # or determine that it doesn't exist
+            else:
+                return results
+            
+            attempt_count += 1
+            probed_indexes.append(probe_index)
             
 
     #  resizes if the load index exceeds max_load_index or if overridden, in order to consolidate logic into a single function
@@ -114,8 +146,9 @@ class HashTable():
         self._table, new_table = new_table, self._table
         # reinserts existing items at newly-determined index because otherwise they won't be found in the new table
         for item in new_table:
-            if not isinstance(item, BucketStatus):
-                self.insert(item.key, item)
+            if len(item) == 2:
+                key, value = item
+                self.insert(key, value)
     
 
     def calculate_load_index(self):
