@@ -77,11 +77,11 @@ class MailItem():
             entry_time, entry_status = entry
             if entry_time > time:
                 prior_entry_time, prior_entry_status = prior_entry
-                return f"{prior_entry_status}: {prior_entry_time}"
+                return f"{minutes_to_time(prior_entry_time)}: {prior_entry_status}"
 
             prior_entry = entry
             
-        return f"{entry_status}: {entry_time}"
+        return f"{minutes_to_time(entry_time)}: {entry_status}"
     
     def can_be_delivered(self):
         return not self.delayed_until and not self.has_incorrect_address and self.delivery_status == DeliveryStatus.AT_HUB
