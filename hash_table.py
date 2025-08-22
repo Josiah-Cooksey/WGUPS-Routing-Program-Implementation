@@ -38,7 +38,10 @@ class HashTable():
 
     def insert(self, key, some_obj):
         key_hash = custom_hash(key)
-        some_obj.self_hash = key_hash
+        try:
+            some_obj.self_hash = key_hash
+        except:
+            pass
         insertion_attempt_count = 0
 
         while True:
@@ -87,7 +90,7 @@ class HashTable():
             attempt_count += 1
     
     # TODO: make address lookups case-insensitive (probably by uncapitalising all characters of addresses or adjusting the hashing function)
-    def lookup(self, key):
+    def lookup_first(self, key):
         key_hash = custom_hash(key)
         attempt_count = 0
         while True:
@@ -104,6 +107,29 @@ class HashTable():
             # or determine that it doesn't exist
             else:
                 return None
+            
+    def lookup_exact(self, key):
+        attempt_count = 0
+        key_hash = custom_hash(key)
+        while True:
+            probe_index = self.calculate_probe_index(key_hash, attempt_count)
+            item = self._table[probe_index]
+            
+            # we either find it
+            if len(item) == 2:
+                found_key, found_value = item
+                # needs to return only an exact match
+                if found_key == key:
+                    return found_value
+            # continue searching
+            elif item == BucketStatus.DELETED:
+                pass
+            # or determine that it doesn't exist
+            else:
+                return None
+            
+            attempt_count += 1
+
             
     # this allows us to retrieve all elements that match the key
     def lookup_all(self, key):
