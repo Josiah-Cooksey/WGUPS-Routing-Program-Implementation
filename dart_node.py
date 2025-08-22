@@ -1,4 +1,6 @@
-class DistanceNode():
+# can represent a start point and a distance to the next, or and end point and the distance to reach it from your current position
+# depends on context
+class DartNode():
     def __init__(self, before_hash=None, distance: float=None, key=None):
         self.before_hash = before_hash
         self.distance = distance
@@ -9,4 +11,4 @@ class DistanceNode():
             self.key = key
 
     def __repr__(self):
-        return f"{self.distance} miles to {self.before_hash}"
+        return f"node: {self.before_hash}; distance: {self.distance}"
