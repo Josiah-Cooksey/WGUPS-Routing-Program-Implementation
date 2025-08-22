@@ -197,8 +197,21 @@ def start():
     truck_restricted_packages = HashTable()
     for package in package_data:
         if package.required_truck != None:
+            # TODO: fix the fact that keys are currently mutable
+            # because for this project we know that the address will change, if we force immutable keys that won't work unless we remove and reinsert
+            # and for that we'd need a lookup function that doesn't just return the first match
+            # however, because the city doesn't change, maybe we could group packages by that
+            # the downside to that is that it's not scalable for a real-world software solution
+            # a third approach would be allowing mutable keys that are fields of the object being inserted, but that would require manual management of rehashing
+            # something else that could work is just not adding packages with incorrect addresses to the hash table, but that's somewhat of a cop-out and we'd need to insert it later 
+            # when the update event happens, as well as stall ending the program if we have pending updates, AND update the package count 
             truck_restricted_packages.insert(package.required_truck, package)
+            print(f"before: {truck_restricted_packages.lookup(package.required_truck)}")
+            package.deadline = "test works"
+            print(f"after: {ID_package_table.lookup_by_id(package.id)}")
+            
 
+    
 
     while not all_packages_delivered:
         for truck in trucks:
