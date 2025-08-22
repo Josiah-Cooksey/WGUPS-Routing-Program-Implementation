@@ -3,10 +3,7 @@ import csv
 from enum import Enum
 import math
 import os
-import random
-import re
 from delivery_driver import DeliveryDriver
-from delivery_status import DeliveryStatus
 from distance_node import DistanceNode
 from hash_table import HashTable
 from mail_item import MailItem
@@ -204,11 +201,6 @@ def start():
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
     ID_package_table, package_data = parse_package_data("WGUPS Package File.csv")
     
-    for key, item in package_data:
-        hub_distances = distance_data.lookup_exact("HUB")
-        result = hub_distances.lookup_exact(key)
-        print(f"distance from HUB to {item.address}: {result.distance}")
-    
     for truck_number in range(truck_count):
         trucks.append(Truck(truck_number + 1))
 
@@ -288,15 +280,18 @@ def start():
                 truck.packages.extend(codelivery_packages_to_load)
                 # and finally packages grouped by address
 
-        # can't dispatch trucks until after 8:00 am (8 * 60 = 480 minutes)
-        if current_time_minutes > start_time_minutes:
+        # can't dispatch trucks until 8:00 am (8 * 60 = 480 minutes)
+        if current_time_minutes >= start_time_minutes:
             for truck in trucks:
-                if len(truck.packages) >= 1:
+                if len(truck.packages) >= 1 and truck.minimum_spanning_tree == None:
                     generate_MST(truck, distance_data)
         # TODO: progress time somehow and log events that happen at each minute
-        # for mail_items we can store the delivery_time using the mark_delivered function
+        # for mail_items we can store the delivery_time using the update_status function
         # for trucks we'll need 
-        
+        for key, package in package_data:
+            # print(package.get_status(current_time_minutes))
+            print(package.get_status(current_time_minutes))
+            break
         # it may be easiest to progress 1 minute at a time
         current_time_minutes += 1
 
