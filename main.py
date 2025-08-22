@@ -173,9 +173,9 @@ def start():
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
     ID_package_table, package_data = parse_package_data("WGUPS Package File.csv")
     
-    for item in package_data:
+    for key, item in package_data:
         hub_distances = distance_data.lookup("HUB")
-        result = hub_distances.lookup(item.address)
+        result = hub_distances.lookup(key)
         print(f"distance from HUB to {item.address}: {result.distance}")
     
     for truck_number in range(truck_count):
@@ -195,9 +195,9 @@ def start():
     all_packages_delivered = False
 
     truck_restricted_packages = HashTable()
-    for package in package_data:
+    for key, package in package_data:
         if package.required_truck != None:
-            # TODO: fix the fact that keys are currently mutable
+            # TODO: handle the fact that keys are currently mutable
             # because for this project we know that the address will change, if we force immutable keys that won't work unless we remove and reinsert
             # and for that we'd need a lookup function that doesn't just return the first match
             # however, because the city doesn't change, maybe we could group packages by that
@@ -205,10 +205,18 @@ def start():
             # a third approach would be allowing mutable keys that are fields of the object being inserted, but that would require manual management of rehashing
             # something else that could work is just not adding packages with incorrect addresses to the hash table, but that's somewhat of a cop-out and we'd need to insert it later 
             # when the update event happens, as well as stall ending the program if we have pending updates, AND update the package count 
-            truck_restricted_packages.insert(package.required_truck, package)
-            print(f"before: {truck_restricted_packages.lookup(package.required_truck)}")
-            package.deadline = "test works"
-            print(f"after: {ID_package_table.lookup_by_id(package.id)}")
+            
+            # this test confirmed that hash_tables reference the same package instances, meaning an edit to a field will propogate(?) across our different hash_tables
+            """truck_restricted_packages.insert(package.required_truck, package)
+            retrieval_test = truck_restricted_packages.lookup_all(package.required_truck)
+            for test in retrieval_test:
+                if test.id == package.id:
+                    retrieval_test_item = test
+                    print(f"before: {retrieval_test_item}")
+                    retrieval_test_item.deadline = "test works"
+                    reference_test = ID_package_table.lookup_by_id(retrieval_test_item.id)
+                    print(f"after: {reference_test}")
+                    break"""
             
 
     
