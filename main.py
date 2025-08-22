@@ -13,11 +13,7 @@ from truck import Truck
 from utils import *
 
 
-
-
-
-# in an ideal world this data would already be in a database that we could query
-# spreadsheets are unsustainable
+# in an ideal world this data would already be in a database that we could query because spreadsheets are unsustainable
 def parse_package_data(filename):
     required_ID_table = HashTable()
     my_table = HashTable()
@@ -47,6 +43,7 @@ def parse_package_data(filename):
         print(f"An error occurred parsing \"{filename}\":\n{e}")"""
     
     return (required_ID_table, my_table)
+
 
 def parse_distance_data(filename):
     nodes = HashTable()
@@ -112,6 +109,8 @@ def parse_distance_data(filename):
         print(f"Permission does not exist to open \"{filename}\"")
 
     return nodes
+
+
 """A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
 •   delivery address
 •   delivery deadline
@@ -149,13 +148,10 @@ G.  Describe what you would do differently, other than the two algorithms identi
 
 H.  Verify that the data structure used in the solution meets all requirements in the scenario.
 1.  Identify two other data structures that could meet the same requirements in the scenario.
-a.  Describe how each data structure identified in H1 is different from the data structure used in the solution."""
+a.  Describe how each data structure identified in H1 is different from the data structure used in the solution.
 
-# TODO: make address lookups case-insensitive (probably by uncapitalising all characters of addresses or adjusting the hashing function)
-# TODO: I want to pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
-# another approach would be to group packages by address, then try to group groups
-
-"""•  Each truck can carry a maximum of 16 packages, and the ID number of each package is unique.
+ASSUMPTIONS:
+•  Each truck can carry a maximum of 16 packages, and the ID number of each package is unique.
 •  The trucks travel at an average speed of 18 miles per hour and have an infinite amount of gas with no need to stop.
 •  There are no collisions.
 •  Three trucks and two drivers are available for deliveries. Each driver stays with the same truck as long as that truck is in service.
@@ -165,6 +161,7 @@ a.  Describe how each data structure identified in H1 is different from the data
 •  The delivery address for package #9, Third District Juvenile Court, is wrong and will be corrected at 10:20 a.m. WGUPS is aware that the address is incorrect and will be updated at 10:20 a.m. However, WGUPS does not know the correct address (410 S. State St., Salt Lake City, UT 84111) until 10:20 a.m.
 •  The distances provided in the “WGUPS Distance Table” are equal regardless of the direction traveled.
 •  The day ends when all 40 packages have been delivered."""
+
 
 def start():
     driver_count = 2
@@ -177,7 +174,6 @@ def start():
     ID_package_table, package_data = parse_package_data("WGUPS Package File.csv")
     
     for item in package_data.table:
-        # print(item)
         if isinstance(item, MailItem):
             hub_distances = distance_data.lookup("HUB")
             result = hub_distances.lookup(item.address)
@@ -199,20 +195,35 @@ def start():
 
     all_packages_delivered = False
 
+    restricted_packages = HashTable()
+    for package in package_data.table:
+        if package.required_truck != None:
+            restricted_packages.insert(package.required_truck, package)
+
+
     while not all_packages_delivered:
         for truck in trucks:
             # whenever the truck is at the hub we can safely assume that we should attempt to load packages 
             if truck.at_hub and len(truck.packages) < truck.package_capacity:
-                pass
-                # we prioritise packages restricted to this truck, then packages delivered together
+                # TODO: pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
+                # another approach would be to group packages by address, then try to group groups
+
+                # we prioritise packages restricted to this truck
+                while package := restricted_packages.lookup(truck.id) != None and package.can_be_delivered():
+                    truck.packages.append(package)
                 # then packages that must be delivered together
+                for package in truck.packages:
+                    if package.can_be_delivered():
+                        truck.packages.append(package)
                 # and finally packages grouped by address
             
         # can't dispatch trucks until after 8:00 am (8 * 60 = 480 minutes)
 
+        # TODO: progress time somehow and log events that happen at each minute
+        # for mail_items we can store the delivery_time using the mark_delivered function
+        # for trucks we'll need 
         current_time_minutes += 1
 
-    # TODO: progress time somehow
     # update package #9 address at a specific time (maybe an "updates" list that we poll each minute that progresses?)
     # add a user interface for checking package status
 
