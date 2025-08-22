@@ -11,7 +11,7 @@ class MailItem():
         self.deadline = deadline
         self.weight = int(weightKILO)
         self.notes = notes
-        self.DeliveryStatus = DeliveryStatus.AT_HUB
+        self.delivery_status = DeliveryStatus.AT_HUB
         self.delivery_time = None
         self.key = None
         self.hash = None
@@ -50,4 +50,7 @@ class MailItem():
     
     def mark_delivered(self, time):
         self.delivery_time = time
-        self.DeliveryStatus = DeliveryStatus.DELIVERED
+        self.delivery_status = DeliveryStatus.DELIVERED
+    
+    def can_be_loaded(self):
+        return not self.delayed_until and not self.has_incorrect_address and self.delivery_status == DeliveryStatus.AT_HUB
