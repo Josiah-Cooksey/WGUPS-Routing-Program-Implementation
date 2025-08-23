@@ -49,6 +49,7 @@ class HashTable():
                 # needs to find an exact match
                 if found_key == key:
                     self._table[probe_index] = BucketStatus.DELETED
+                    self._length -= 1
                     return True
             # continue searching
             elif item == BucketStatus.DELETED:
