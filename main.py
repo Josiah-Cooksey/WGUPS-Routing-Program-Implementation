@@ -142,8 +142,8 @@ def generate_MST(truck: Truck, distance_data):
 def generate_route(current_node:MSTNode, prior_node=None):
     # pseudocode plan:
     """
-    add initial node pointing to first child node
     for each child that's not a prior node:
+        add initial node pointing to child node 
         recursively generate_route(child, current_node)
         remove child from "out" paths of current node
 
@@ -154,26 +154,27 @@ def generate_route(current_node:MSTNode, prior_node=None):
     return path
     """
     path = []
-
-    # first we add the start node if we're on it
-    if prior_node == None:
+    if len(current_node.nodes) > 1:
+        """# first we add the start node if we're on it
         next_node, next_node_distance = current_node[0]
-        d = DartNode(current_node.label, next_node_distance)
-        path.append(d)
+        self_dart = DartNode(current_node.label, next_node_distance)
+        path.append(self_dart)"""
+        
 
-    # second, we add the paths through all sub-nodes except for the prior_node (which would technically be the parent, if one exists)
-    for next_node, distance_to_next_node in current_node.nodes:
-        # avoids pathing backwards for now
-        if prior_node != None and next_node.label == prior_node.label:
-            continue
- 
-        d = DartNode(current_node.label, distance_to_next_node)
-        path.append(d)
-        path.extend(generate_route(next_node, current_node))
-        current_node.remove_node(next_node)
+        # second, we add the paths through all sub-nodes except for the prior_node (which would technically be the parent, if one exists)
+        for next_node, distance_to_next_node in current_node.nodes:
+            # avoids pathing backwards for now
+            if prior_node != None and next_node.label == prior_node.label:
+                continue
+            # for each child node, we need to indicate that we started here
+            self_dart = DartNode(current_node.label, distance_to_next_node)
+            path.append(self_dart)
+    
+            path.extend(generate_route(next_node, current_node))
+            current_node.remove_node(next_node)
 
     # then when there's only one edge connected to the current node
-    if len(current_node.nodes) == 1:
+    if len(current_node.nodes) <= 1:
         # a prior node makes this a dead-end node
         if prior_node != None:
             _, prior_distance = current_node[0]
