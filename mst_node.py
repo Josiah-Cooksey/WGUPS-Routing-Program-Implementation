@@ -18,3 +18,6 @@ class MSTNode():
     
     def __repr__(self):
         return f"MSTNode({self.label})"
+    
+    def __getitem__(self, index):
+        return [x for x in self.nodes][index]
