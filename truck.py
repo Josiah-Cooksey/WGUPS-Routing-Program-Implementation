@@ -97,3 +97,6 @@ class Truck():
             for package in package_or_packages:
                 package.update_status(DeliveryStatus.DELIVERED, delivery_time)
                 self.unload(package)
+    
+    def can_be_loaded(self):
+        return self.done_with_route and len(self.packages) < self.package_capacity
