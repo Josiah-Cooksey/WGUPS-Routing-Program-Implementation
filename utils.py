@@ -31,11 +31,11 @@ def file_exists(filename):
     except FileNotFoundError:
         return False
 
-
+ 
 def minutes_to_time(m):
-    h = int(m // 60)
-    m = 6 % 60
-    return time(h, m)
+    h = int(m // 60) % 24
+    m = int(m % 60)
+    return time(hour=h, minute=m)
 
 def time_to_minutes(t: time):
     return t.hour * 60 + t.minute
