@@ -284,7 +284,7 @@ def start():
         for truck in trucks:
             # whenever the truck is at the hub we can safely assume that we should attempt to load packages 
             if truck.done_with_route and len(truck.packages) < truck.package_capacity:
-                # TODO: pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
+                """# TODO: pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
                 # another approach would be to group packages by address, then try to group groups
 
 
@@ -316,8 +316,10 @@ def start():
 
                 truck.unload(codelivery_packages_to_unload)
                 truck.load(codelivery_packages_to_load)
-                # and finally packages grouped by address
-
+                # and finally packages grouped by address"""
+                for _, package in package_data:
+                    if package.can_be_delivered():
+                        truck.load(package)
 
                 for _, package in truck.packages:
                     package.update_status(DeliveryStatus.ON_TRUCK, current_time_minutes)
@@ -329,7 +331,8 @@ def start():
                     if truck.minimum_spanning_tree == None:
                         generate_MST(truck, distance_data)
                         truck.route = generate_route(truck.minimum_spanning_tree[0])
-                        print("->".join(str(x) for x in truck.route))
+                        print("->".join(str(n) for n in truck.route))
+                        print(f"total distance: {sum(n.distance for n in truck.route)}")
                     truck.drive_route(current_time_minutes)
                     
                 
@@ -341,7 +344,8 @@ def start():
             print(package.get_status(current_time_minutes))"""
         delivered_packages = sum(1 for _, p in package_data if p.get_status(current_time_minutes)[1] == DeliveryStatus.DELIVERED)
         if delivered_packages > 0:
-            print(f"{delivered_packages} total delivered packages at {minutes_to_time(current_time_minutes)}")
+            total_mileage = sum(t.get_current_mileage(current_time_minutes) for t in trucks)
+            print(f"{minutes_to_time(current_time_minutes)}; total mileage: {total_mileage}; delivered packages: {delivered_packages}")
         # it may be easiest to progress 1 minute at a time
         current_time_minutes += 1
 
