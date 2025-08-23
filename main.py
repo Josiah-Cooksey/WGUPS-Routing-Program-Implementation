@@ -134,26 +134,40 @@ def generate_MST(truck: Truck, distance_data):
     
     for element in minimum_spanning_tree:
         connections = " ".join(f"{minimum_spanning_tree.index(sub)}" for sub, _ in element.nodes)
-        print(f"{minimum_spanning_tree.index(element)} maps to: " + connections)
+        print(f"{minimum_spanning_tree.index(element)} {(element)} maps to: " + connections)
     truck.minimum_spanning_tree = minimum_spanning_tree
 
 
 # recursively consumes an MST starting from the passed-in-node and returns a path covering each node and returning to the initial node
 def generate_route(current_node:MSTNode, prior_node=None):
+    # pseudocode plan:
+    """
+    add initial node pointing to first child node
+    for each child that's not a prior node:
+        recursively generate_route(child, current_node)
+        remove child from "out" paths of current node
+
+    if current node has one child node, it's a dead end
+        so we can go backwards by 
+        returning a DartNode pointing from current node to that only child node (which is technically the prior node when pathing)
+
+    return path
+    """
     path = []
-    """# first we add the start node if we're on it
+
+    # first we add the start node if we're on it
     if prior_node == None:
         next_node, next_node_distance = current_node[0]
         d = DartNode(current_node.label, next_node_distance)
-        path.append(d)"""
+        path.append(d)
 
-    # second, we add the paths through all sub-nodes except for the prior_node
-    for next_node, next_node_distance in current_node.nodes:
+    # second, we add the paths through all sub-nodes except for the prior_node (which would technically be the parent, if one exists)
+    for next_node, distance_to_next_node in current_node.nodes:
         # avoids pathing backwards for now
         if prior_node != None and next_node.label == prior_node.label:
             continue
-
-        d = DartNode(current_node.label, next_node_distance)
+ 
+        d = DartNode(current_node.label, distance_to_next_node)
         path.append(d)
         path.extend(generate_route(next_node, current_node))
         current_node.remove_node(next_node)
@@ -165,13 +179,11 @@ def generate_route(current_node:MSTNode, prior_node=None):
             _, prior_distance = current_node[0]
             d = DartNode(current_node.label, prior_distance)
             current_node.remove_node(prior_node)
-            return [d]
+            path.append(d)
         # but no prior node makes this a start node
         else:
             # and if there's just one node left then it doesn't really point anywhere, so the distance can be whatever
             path.append(DartNode(current_node.label, 0))
-            """for next_node, distance in current_node.nodes:
-                path.extend(generate_route(next_node, current_node))"""
     
     return path
 
