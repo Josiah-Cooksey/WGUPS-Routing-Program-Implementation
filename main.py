@@ -131,9 +131,49 @@ def generate_MST(truck: Truck, distance_data):
 
             
             minimum_spanning_tree.append(new_vertex)
-        
+    
+    for element in minimum_spanning_tree:
+        connections = " ".join(f"{minimum_spanning_tree.index(sub)}" for sub, _ in element.nodes)
+        print(f"{minimum_spanning_tree.index(element)} maps to: " + connections)
     truck.minimum_spanning_tree = minimum_spanning_tree
-    truck.update_status(minimum_spanning_tree[0])
+
+
+# recursively consumes an MST starting from the passed-in-node and returns a path covering each node and returning to the initial node
+def generate_route(current_node:MSTNode, prior_node=None):
+    path = []
+    """# first we add the start node if we're on it
+    if prior_node == None:
+        next_node, next_node_distance = current_node[0]
+        d = DartNode(current_node.label, next_node_distance)
+        path.append(d)"""
+
+    # second, we add the paths through all sub-nodes except for the prior_node
+    for next_node, next_node_distance in current_node.nodes:
+        # avoids pathing backwards for now
+        if prior_node != None and next_node.label == prior_node.label:
+            continue
+
+        d = DartNode(current_node.label, next_node_distance)
+        path.append(d)
+        path.extend(generate_route(next_node, current_node))
+        current_node.remove_node(next_node)
+
+    # then when there's only one edge connected to the current node
+    if len(current_node.nodes) == 1:
+        # a prior node makes this a dead-end node
+        if prior_node != None:
+            _, prior_distance = current_node[0]
+            d = DartNode(current_node.label, prior_distance)
+            current_node.remove_node(prior_node)
+            return [d]
+        # but no prior node makes this a start node
+        else:
+            # and if there's just one node left then it doesn't really point anywhere, so the distance can be whatever
+            path.append(DartNode(current_node.label, 0))
+            """for next_node, distance in current_node.nodes:
+                path.extend(generate_route(next_node, current_node))"""
+    
+    return path
 
 
 """A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
@@ -287,15 +327,17 @@ def start():
                 if len(truck.packages) >= 1:
                     if truck.minimum_spanning_tree == None:
                         generate_MST(truck, distance_data)
+                        truck.route = generate_route(truck.minimum_spanning_tree[0])
+                        print("->".join(str(x) for x in truck.route))
                     truck.move()
                     
                 
         # TODO: progress time somehow and log events that happen at each minute
         # for mail_items we can store the delivery_time using the update_status function
         # for trucks we'll need to keep track of what time they reached each node to be able to tally mileage at that point
-        for key, package in package_data:
+        """for key, package in package_data:
             # print(package.get_status(current_time_minutes))
-            print(package.get_status(current_time_minutes))
+            print(package.get_status(current_time_minutes))"""
         # it may be easiest to progress 1 minute at a time
         current_time_minutes += 1
 
