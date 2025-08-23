@@ -4,7 +4,6 @@ class DartNode():
     def __init__(self, label=None, distance: float=None, key=None):
         self.label = label
         self.distance = distance
-        self.self_hash = None
         if key == None:
             self.key = self.label
         else:

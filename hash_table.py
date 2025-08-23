@@ -10,9 +10,7 @@ class HashTable():
         self.hashing_helper1 = hashing_helper1
         self.hashing_helper2 = hashing_helper2
         # the self hash helps with nested hash tables and populating both sides of a relationship
-        self.before_hash = None
-        self.self_hash = None
-        self.key = self.before_hash
+        self.label = None
         self._length = 0
 
     # returns key, value pairs
@@ -29,10 +27,10 @@ class HashTable():
     # this isn't a proper representation but it helps with debugging
     def __repr__(self):
         output = ""
-        if self.before_hash == None:
-            output = "no before_hash"
-        return self.before_hash
-        output += "\n".join(item.before_hash for item in self._table if not isinstance(item, BucketStatus)) 
+        if self.label == None:
+            output = "no label"
+        return self.label
+        output += "\n".join(item.label for item in self._table if not isinstance(item, BucketStatus)) 
         return output
     
 
@@ -89,10 +87,6 @@ class HashTable():
 
     def insert(self, key, some_obj):
         key_hash = custom_hash(key)
-        try:
-            some_obj.self_hash = key_hash
-        except:
-            pass
         insertion_attempt_count = 0
 
         while True:

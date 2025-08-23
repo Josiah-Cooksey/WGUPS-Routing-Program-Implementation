@@ -14,7 +14,6 @@ class MailItem():
         self.notes = notes
         self.delivery_status = None
         self.delivery_time = None
-        self.key = None
         self.hash = None
         self.status_log = []
 

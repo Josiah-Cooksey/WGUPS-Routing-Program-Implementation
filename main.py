@@ -72,9 +72,7 @@ def parse_distance_data(filename):
                     zip_code_label = split_row[1]
                 
                 from_node_name = street_address
-                from_node.before_hash = from_node_name
-                from_node.key = from_node.before_hash
-                from_node.self_hash = custom_hash(from_node_name)
+                from_node.label = from_node_name
 
                 # start from 1 to exclude the row label
                 # also, because (aside from the label) the Nth row has N cells filled from left to right, we can skip empty cells easily by referencing the row index 
