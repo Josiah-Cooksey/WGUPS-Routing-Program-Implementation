@@ -12,3 +12,6 @@ class DartNode():
 
     def __repr__(self):
         return f"node: {self.before_hash}; distance: {self.distance}"
+
+    def __str__(self):
+        return self.before_hash
