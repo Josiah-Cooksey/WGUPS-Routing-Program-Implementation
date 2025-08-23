@@ -35,9 +35,9 @@ class Truck():
     def get_current_mileage(self, current_time: int):
         mileage = 0
         for i in range(len(self.visited_address_log) - 2):
-            time, node = self.visited_address_log[i]
-            if current_time > time:
-                mileage += (time * self.average_speed_mpm)
+            log_time, log_node = self.visited_address_log[i]
+            if current_time > log_time:
+                mileage += ((current_time - log_time) * self.average_speed_mpm)
             else:
                 # because the log is in chronological order, we only need to sum distances from nodes logged at a time <= the current time
                 break
