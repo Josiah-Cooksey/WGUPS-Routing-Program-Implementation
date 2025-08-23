@@ -5,6 +5,7 @@ import math
 import os
 from delivery_driver import DeliveryDriver
 from dart_node import DartNode
+from delivery_status import DeliveryStatus
 from hash_table import HashTable
 from mail_item import MailItem
 from truck import Truck
@@ -112,9 +113,12 @@ def parse_distance_data(filename):
 
 def generate_MST(truck: Truck, distance_data):
     minimum_spanning_tree = [MSTNode("HUB")]
+    # TODO: decrease big-O for generate_MST by sorting distances beforehand using the fastest sorting function 
+    # truck.packages.sort(key=lambda: x: )
+
     # first we need to find out what nodes we need to connect
-    for package in truck.packages:
-        new_vertex = MSTNode(package.address)
+    for address, _ in truck.packages:
+        new_vertex = MSTNode(address)
         if new_vertex not in minimum_spanning_tree:
             smallest_is_to_this_vertex = None
             smallest_distance = math.inf
@@ -140,51 +144,32 @@ def generate_MST(truck: Truck, distance_data):
 
 # recursively consumes an MST starting from the passed-in-node and returns a path covering each node and returning to the initial node
 def generate_route(current_node:MSTNode, prior_node=None):
-    # pseudocode plan:
-    """
-    for each child that's not a prior node:
-        add initial node pointing to child node 
-        recursively generate_route(child, current_node)
-        remove child from "out" paths of current node
-
-    if current node has one child node, it's a dead end
-        so we can go backwards by 
-        returning a DartNode pointing from current node to that only child node (which is technically the prior node when pathing)
-
-    return path
-    """
     path = []
-    if len(current_node.nodes) > 1:
-        """# first we add the start node if we're on it
-        next_node, next_node_distance = current_node[0]
-        self_dart = DartNode(current_node.label, next_node_distance)
-        path.append(self_dart)"""
-        
 
-        # second, we add the paths through all sub-nodes except for the prior_node (which would technically be the parent, if one exists)
-        for next_node, distance_to_next_node in current_node.nodes:
-            # avoids pathing backwards for now
-            if prior_node != None and next_node.label == prior_node.label:
-                continue
-            # for each child node, we need to indicate that we started here
-            self_dart = DartNode(current_node.label, distance_to_next_node)
-            path.append(self_dart)
-    
-            path.extend(generate_route(next_node, current_node))
-            current_node.remove_node(next_node)
+    # first, we add the paths through all sub-nodes except for the prior_node (which would technically be the parent, if one exists)
+    for next_node, distance_to_next_node in current_node.nodes:
+        # avoids pathing backwards for now
+        if prior_node != None and next_node.label == prior_node.label:
+            continue
+        # for each child node, we need to indicate that we started here
+        self_dart = DartNode(current_node.label, distance_to_next_node)
+        path.append(self_dart)
 
-    # then when there's only one edge connected to the current node
-    if len(current_node.nodes) <= 1:
+        path.extend(generate_route(next_node, current_node))
+        current_node.remove_node(next_node)
+
+    # when there's only one edge connected to the current node
+    if len(current_node.nodes) == 1:
         # a prior node makes this a dead-end node
         if prior_node != None:
             _, prior_distance = current_node[0]
             d = DartNode(current_node.label, prior_distance)
             current_node.remove_node(prior_node)
             path.append(d)
-        # but no prior node makes this a start node
-        else:
-            # and if there's just one node left then it doesn't really point anywhere, so the distance can be whatever
-            path.append(DartNode(current_node.label, 0))
+    # but no other edges connected makes this the start node again
+    else:
+        # so the distance can be whatever
+        path.append(DartNode(current_node.label, 0))
     
     return path
 
@@ -249,7 +234,7 @@ def start():
     # when trucks can depart hub after
     start_time_minutes = 480
     current_time_minutes = 0
-    all_packages_delivered = False
+    delivered_packages = 0
 
     distance_data = parse_distance_data("WGUPS Distance Table.csv")
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
@@ -294,11 +279,11 @@ def start():
 
     
     
-    while not all_packages_delivered:
+    while not delivered_packages == len(ID_package_table):
         """LOAD PACKAGES"""
         for truck in trucks:
             # whenever the truck is at the hub we can safely assume that we should attempt to load packages 
-            if truck.current_address == "HUB" and len(truck.packages) < truck.package_capacity:
+            if truck.done_with_route and len(truck.packages) < truck.package_capacity:
                 # TODO: pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
                 # another approach would be to group packages by address, then try to group groups
 
@@ -308,11 +293,11 @@ def start():
                 _truck_restricted_packages = truck_restricted_packages.lookup_all(truck.id)
                 for package in _truck_restricted_packages:
                     if package.can_be_delivered():
-                        truck.packages.append(package)
+                        truck.load(package)
                 # then packages that must be delivered together (ASSUMES THAT CO-DELIVERY RESTRICTIONS ARE LISTED ON ALL PACKAGES IN RESTRICTION GROUP)
                 codelivery_packages_to_load = []
                 codelivery_packages_to_unload = []
-                for loaded_package in truck.packages:
+                for _, loaded_package in truck.packages:
                     # because some packages that need to be delivered together may not all be ready for delivery
                     # we will first find all of them and load them into a buffer
                     loading_buffer = []
@@ -322,17 +307,20 @@ def start():
                             if not other_package.can_be_delivered():
                                 all_buffered_packages_can_be_delivered = False
                                 # if all grouped packages aren't deliverable, then we need to unload the already-loaded package of that group
-                                codelivery_packages_to_unload.append(loaded_package)
+                                codelivery_packages_to_unload.append((loaded_package.address, loaded_package))
                                 break
                             loading_buffer.append(other_package)
 
                     if all_buffered_packages_can_be_delivered:
                         codelivery_packages_to_load.extend(loading_buffer)
 
-                for r in codelivery_packages_to_unload:
-                    truck.packages.remove(r)
-                truck.packages.extend(codelivery_packages_to_load)
+                truck.unload(codelivery_packages_to_unload)
+                truck.load(codelivery_packages_to_load)
                 # and finally packages grouped by address
+
+
+                for _, package in truck.packages:
+                    package.update_status(DeliveryStatus.ON_TRUCK, current_time_minutes)
 
         # can't dispatch trucks until 8:00 am (8 * 60 = 480 minutes)
         if current_time_minutes >= start_time_minutes:
@@ -342,7 +330,7 @@ def start():
                         generate_MST(truck, distance_data)
                         truck.route = generate_route(truck.minimum_spanning_tree[0])
                         print("->".join(str(x) for x in truck.route))
-                    truck.move()
+                    truck.drive_route(current_time_minutes)
                     
                 
         # TODO: progress time somehow and log events that happen at each minute
@@ -351,6 +339,9 @@ def start():
         """for key, package in package_data:
             # print(package.get_status(current_time_minutes))
             print(package.get_status(current_time_minutes))"""
+        delivered_packages = sum(1 for _, p in package_data if p.get_status(current_time_minutes)[1] == DeliveryStatus.DELIVERED)
+        if delivered_packages > 0:
+            print(f"{delivered_packages} total delivered packages at {minutes_to_time(current_time_minutes)}")
         # it may be easiest to progress 1 minute at a time
         current_time_minutes += 1
 
