@@ -33,7 +33,8 @@ def file_exists(filename):
 
 
 def minutes_to_time(m):
-    h = m // 60
+    h = int(m // 60)
+    m = 6 % 60
     return time(h, m)
 
 def time_to_minutes(t: time):
