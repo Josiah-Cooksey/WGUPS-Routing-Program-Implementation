@@ -21,3 +21,8 @@ class MSTNode():
     
     def __getitem__(self, index):
         return [x for x in self.nodes][index]
+    
+    def __eq__(self, other):
+        if isinstance(other, MSTNode) and other.label == self.label:
+            return True
+        return False
