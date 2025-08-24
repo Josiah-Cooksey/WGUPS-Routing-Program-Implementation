@@ -368,9 +368,15 @@ class WGUPSPackageRouter():
                     # after doing that for all packages, we should load:
                     # bundles, then individual packages with truck restrictions, then packages going to the same ZIP CODE
                     # (only 12 unique ZIP codes for the 40 packages, but there are 26 unique addresses), then any other packages
+
+                    # bundle what's required
                     forced_bundles = []
+                    zip_bundles = []
                     bundled_package_IDs = []
+                    cannot_be_bundled = []
                     for _, original_package in self.packages_by_ID:
+                        if not original_package.can_be_delivered():
+                            cannot_be_bundled.append(original_package)
                         if original_package.co_delivery_restrictions == None:
                             continue
 
@@ -383,18 +389,76 @@ class WGUPSPackageRouter():
                                 if not p.can_be_delivered():
                                     bundle = None
                                     break
-                                bundle.packages.append(p)
+                                bundle.append(p)
                                 if p.required_truck != None:
                                     bundle.required_truck = p.required_truck
 
                             if bundle != None:
                                 forced_bundles.append(bundle)
 
+                    """for bundle in forced_bundles:
+                        if len(truck.packages) + len(bundle) <= truck.package_capacity:
+                            truck.load(bundle)"""
+
+                    # bundle by zip code
+                    for _, package in self.packages_by_ID:
+                        if package.id in bundled_package_IDs or not package.can_be_delivered():
+                            continue
+                        
+                        zip_group = self.packages_by_ZIP.lookup_all(package.zip)
+                        bundle = MailBundle()
+                        bundle.bundled_by = package.zip
+                        for zip_package in zip_group:
+                            if package.id in zip_bundles or package.id in bundled_package_IDs or not package.can_be_delivered():
+                                continue
+                            
+                            bundle.append(zip_package)
+                            bundled_package_IDs.append(zip_package.id)
+
+                        zip_bundles.append(bundle)
+                    
+                    # this loads packages with the same zip codes as packages already required to be on this truck 
                     for bundle in forced_bundles:
                         if len(truck.packages) + len(bundle) <= truck.package_capacity:
-                            truck.load(bundle)
+                            truck.load(bundle) 
+                            if len(truck.packages) >= truck.package_capacity: 
+                                continue
+                            
+                            for loaded_package in bundle:
+                                for zip_bundle in zip_bundles:
+                                    if loaded_package.zip != zip_bundle.bundled_by:
+                                        continue
+                                    
+                                    # we add as many packages with the same zip code from the bundle into the truck
+                                    # and it doesn't matter that the bundle now has fewer items because they are not required to be bundled
+                                    # it's just to optimise distance
+                                    while len(truck.packages) < truck.package_capacity:
+                                        # .pop may throw IndexError 
+                                        try:
+                                            z = zip_bundle.pop()
+                                            truck.load(z)
 
+                                        except IndexError:
+                                            break
+                                    # there is only 1 zip_bundle grouped by the same zip as loaded_package, so we don't need to continue this for-loop
+                                    break
 
+                    # repeated code needs to be in a function
+                    for zip_bundle in zip_bundles:
+                        # we add as many packages with the same zip code from the bundle into the truck
+                        # and it doesn't matter that the bundle now has fewer items because they are not required to be bundled
+                        # it's just to optimise distance
+                        while len(truck.packages) < truck.package_capacity:
+                            # .pop may throw IndexError 
+                            try:
+                                z = zip_bundle.pop()
+                                truck.load(z)
+
+                            except IndexError:
+                                break
+
+                        if len(truck.packages) >= truck.package_capacity:
+                            break
 
                     for _, package in truck.packages:
                         package.update_status(DeliveryStatus.ON_TRUCK, self.now)
@@ -411,10 +475,10 @@ class WGUPSPackageRouter():
                     if truck.route != None:
                         truck.drive_route(self.now)
                         
-            delivered_packages = sum(1 for _, p in self.packages_by_ID if p.get_status(self.now)[1] == DeliveryStatus.DELIVERED)
-            if delivered_packages > 0:
+            self.delivered_packages = sum(1 for _, p in self.packages_by_ID if p.get_status(self.now)[1] == DeliveryStatus.DELIVERED)
+            if self.delivered_packages > 0:
                 total_mileage = sum(t.get_current_mileage(self.now) for t in self.trucks)
-                print(f"{minutes_to_time(self.now)}; total mileage: {total_mileage}; delivered packages: {delivered_packages}")
+                print(f"{minutes_to_time(self.now)}; total mileage: {total_mileage}; delivered packages: {self.delivered_packages}")
             # it may be easiest to progress 1 minute at a time
             self.now += 1
 
