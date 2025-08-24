@@ -80,30 +80,30 @@ class Truck():
     def unload(self, package_or_packages: MailItem | List[MailItem]):
         if isinstance(package_or_packages, MailItem):
             self.packages.remove_by_item(package_or_packages.address, package_or_packages)
+            return
 
-        elif isinstance(package_or_packages, List):
-            for package in package_or_packages:
-                self.packages.remove_by_item(package.address, package)
+        for package in package_or_packages:
+            self.packages.remove_by_item(package.address, package)
     
 
     def load(self, package_or_packages: MailItem | List[MailItem]):
         if isinstance(package_or_packages, MailItem):
             self.packages.insert(package_or_packages.address, package_or_packages)
+            return
 
-        elif isinstance(package_or_packages, List):
-            for package in package_or_packages:
-                self.packages.insert(package.address, package)
+        for package in package_or_packages:
+            self.packages.insert(package.address, package)
     
 
     def deliver(self, package_or_packages: MailItem | List[MailItem], delivery_time):
         if isinstance(package_or_packages, MailItem):
             package_or_packages.update_status(DeliveryStatus.DELIVERED, delivery_time)
             self.unload(package_or_packages)
+            return
 
-        elif isinstance(package_or_packages, List):
-            for package in package_or_packages:
-                package.update_status(DeliveryStatus.DELIVERED, delivery_time)
-                self.unload(package)
+        for package in package_or_packages:
+            package.update_status(DeliveryStatus.DELIVERED, delivery_time)
+            self.unload(package)
     
     def can_be_loaded(self, time):
         return self.route == None and len(self.packages) < self.package_capacity and time >= self.route_completion_timestamp_minutes
