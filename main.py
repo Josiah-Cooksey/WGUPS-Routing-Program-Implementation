@@ -248,26 +248,6 @@ def start():
     for _, package in packages_by_address:
         if package.required_truck != None:
             truck_restricted_packages.insert(package.required_truck, package)
-            # TODO: handle the fact that keys are currently mutable
-            # because for this project we know that the address will change, if we force immutable keys that won't work unless we remove and reinsert
-            # and for that we'd need a lookup function that doesn't just return the first match
-            # however, because the city doesn't change, maybe we could group packages by that
-            # the downside to that is that it's not scalable for a real-world software solution
-            # a third approach would be allowing mutable keys that are fields of the object being inserted, but that would require manual management of rehashing
-            # something else that could work is just not adding packages with incorrect addresses to the hash table, but that's somewhat of a cop-out and we'd need to insert it later 
-            # when the update event happens, as well as stall ending the program if we have pending updates, AND update the package count 
-            
-            # this test confirmed that hash_tables reference the same package instances, meaning an edit to a field will propogate(?) across our different hash_tables
-            """truck_restricted_packages.insert(package.required_truck, package)
-            retrieval_test = truck_restricted_packages.lookup_all(package.required_truck)
-            for test in retrieval_test:
-                if test.id == package.id:
-                    retrieval_test_item = test
-                    print(f"before: {retrieval_test_item}")
-                    retrieval_test_item.deadline = "test works"
-                    reference_test = ID_package_table.lookup_by_id(retrieval_test_item.id)
-                    print(f"after: {reference_test}")
-                    break"""
             
     # The delivery address for package #9, Third District Juvenile Court, is wrong and will be corrected at 10:20 a.m. 
     # WGUPS is aware that the address is incorrect and will be updated at 10:20 a.m. 
@@ -348,7 +328,7 @@ def start():
                 truck.load(codelivery_packages_to_load)
                 # and finally packages grouped by address"""
                 for _, package in packages_by_address:
-                    if package.can_be_delivered():
+                    if package.can_be_delivered() and len(truck.packages) < truck.package_capacity:
                         truck.load(package)
 
                 for _, package in truck.packages:
