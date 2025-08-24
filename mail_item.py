@@ -45,7 +45,7 @@ class MailItem():
         co_delivery_string = self.notes.split("Must be delivered with ")
         if len(co_delivery_string) == 2:
             # TODO: rework one-liner to be more readable
-            self.co_delivery_restrictions = [package_ID for package_ID in co_delivery_string[1].split(", ") if package_ID != None and package_ID != ""]
+            self.co_delivery_restrictions = [int(package_ID) for package_ID in co_delivery_string[1].split(", ") if package_ID != None and package_ID != ""]
         
         # Example: "Delayed on flight---will not arrive to depot until 9:05 am"
         delay_list = self.notes.split("Delayed on flight---will not arrive to depot until ")
