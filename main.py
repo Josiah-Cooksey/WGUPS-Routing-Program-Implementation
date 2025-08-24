@@ -327,9 +327,15 @@ def start():
                 truck.unload(codelivery_packages_to_unload)
                 truck.load(codelivery_packages_to_load)
                 # and finally packages grouped by address"""
-                for _, package in packages_by_address:
+                """for _, package in packages_by_address:
                     if package.can_be_delivered() and len(truck.packages) < truck.package_capacity:
-                        truck.load(package)
+                        truck.load(package)"""
+                # what may work best is that whenever trucks are available to load, we create package groups and load those bundles all at once
+                # to do that, we should first bundle packages that must be delivered together
+                # then mark that bundle as restricted to a specific truck if any of its packages require it
+                # after doing that for all packages, we should load:
+                # bundles, then individual packages with truck restrictions, then packages going to the same address, then any other packages
+
 
                 for _, package in truck.packages:
                     package.update_status(DeliveryStatus.ON_TRUCK, current_time_minutes)
@@ -346,13 +352,6 @@ def start():
                 if truck.route != None:
                     truck.drive_route(current_time_minutes)
                     
-                
-        # TODO: progress time somehow and log events that happen at each minute
-        # for mail_items we can store the delivery_time using the update_status function
-        # for trucks we'll need to keep track of what time they reached each node to be able to tally mileage at that point
-        """for key, package in package_data:
-            # print(package.get_status(current_time_minutes))
-            print(package.get_status(current_time_minutes))"""
         delivered_packages = sum(1 for _, p in packages_by_address if p.get_status(current_time_minutes)[1] == DeliveryStatus.DELIVERED)
         if delivered_packages > 0:
             total_mileage = sum(t.get_current_mileage(current_time_minutes) for t in trucks)
