@@ -27,6 +27,32 @@ class WGUPSPackageRouter():
         self.distance_data = self.parse_distance_data("WGUPS Distance Table.csv")
         # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
         self.packages_by_ID, self.packages_by_ZIP = self.parse_package_data("WGUPS Package File.csv")
+        
+        # this makes sure that if we have a MailItem M, its co_delivery_restrictions include ALL packages that should be with it
+        self.populate_codelivery_restrictions()
+        # test = len(set([p.zip for _, p in packages_by_ID]))
+
+        for truck_number in range(self.truck_count):
+            self.trucks.append(Truck(truck_number + 1))
+
+        for driver_number in range(self.driver_count):
+            d = DeliveryDriver(f"driver{driver_number + 1}")
+            self.trucks[driver_number].driver = d
+            self.drivers.append(d)
+
+        self.truck_restricted_packages = HashTable()
+        for _, package in self.packages_by_ZIP:
+            if package.required_truck != None:
+                self.truck_restricted_packages.insert(package.required_truck, package)
+                
+        # The delivery address for package #9, Third District Juvenile Court, is wrong and will be corrected at 10:20 a.m. 
+        # WGUPS is aware that the address is incorrect and will be updated at 10:20 a.m. 
+        # However, WGUPS does not know the correct address (410 S. State St., Salt Lake City, UT 84111) until 10:20 a.m.
+        self.timed_events = [[620, "update_address", [9, ["410 S State St", "Salt Lake City", "UT", 84111]]]]
+        for _, package in self.packages_by_ZIP:
+            if package.delayed_until != None:
+                self.timed_events.append([package.delayed_until, "delayed_until", package.id])
+
 
     # in an ideal world this data would already be in a database that we could query because spreadsheets are unsustainable
     def parse_package_data(self, filename):
@@ -185,16 +211,30 @@ class WGUPSPackageRouter():
         return path
 
 
-    def populate_codelivery_restrictions(self, already_populated_list:list = []):
-        for _, package in packages_by_ID:
+    def populate_codelivery_restrictions(self):
+        for _, package in self.packages_by_ID:
             if package.co_delivery_restrictions == None:
                 continue
-            for sub_package in package.co_delivery_restrictions:
-                other_end = packages_by_ID.lookup_by_id(sub_package)
-                if(other_end.co_delivery_restrictions == None):
-                    other_end.co_delivery_restrictions = [package.id]
-                else:
-                    other_end.co_delivery_restrictions.append(package.id)
+            self.recursive_codelivery(package)
+        return
+    
+
+    def recursive_codelivery(self, package:MailItem):
+        if package.id not in package.co_delivery_restrictions:
+            package.co_delivery_restrictions.append(package.id)
+
+        for sub_package in package.co_delivery_restrictions:
+            other_end = self.packages_by_ID.lookup_by_id(sub_package)
+            if other_end.co_delivery_restrictions == None:
+                other_end.co_delivery_restrictions = package.co_delivery_restrictions
+                self.recursive_codelivery(other_end)
+            else:
+                for r in package.co_delivery_restrictions:
+                    if not (r in other_end.co_delivery_restrictions):
+                        other_end.co_delivery_restrictions.append(r)
+                        self.recursive_codelivery(other_end)
+            
+        return
 
     """A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
     •   delivery address
@@ -249,38 +289,12 @@ class WGUPSPackageRouter():
 
 
     def start(self):
-
-        # self.populate_codelivery_restrictions()
-
-        # test = len(set([p.zip for _, p in packages_by_ID]))
-
-        for truck_number in range(self.truck_count):
-            self.trucks.append(Truck(truck_number + 1))
-
-        for driver_number in range(self.driver_count):
-            d = DeliveryDriver(f"driver{driver_number + 1}")
-            self.trucks[driver_number].driver = d
-            self.drivers.append(d)
-
-        truck_restricted_packages = HashTable()
-        for _, package in self.packages_by_ZIP:
-            if package.required_truck != None:
-                truck_restricted_packages.insert(package.required_truck, package)
-                
-        # The delivery address for package #9, Third District Juvenile Court, is wrong and will be corrected at 10:20 a.m. 
-        # WGUPS is aware that the address is incorrect and will be updated at 10:20 a.m. 
-        # However, WGUPS does not know the correct address (410 S. State St., Salt Lake City, UT 84111) until 10:20 a.m.
-        timed_events = [[620, "update_address", [9, ["410 S State St", "Salt Lake City", "UT", 84111]]]]
-        for _, package in self.packages_by_ZIP:
-            if package.delayed_until != None:
-                timed_events.append([package.delayed_until, "delayed_until", package.id])
-
         while not self.delivered_packages == len(self.packages_by_ID):
             """PROCESS EVENTS"""
-            events_to_process_now = [event for event in timed_events if self.now >= event[0]]
+            events_to_process_now = [event for event in self.timed_events if self.now >= event[0]]
             for event in events_to_process_now:
                 # important to prevent packages from being marked AT_HUB repeatedly even after being delivered
-                timed_events.remove(event)
+                self.timed_events.remove(event)
                 event_time, event_name, event_data = event
 
                 match event_name:
@@ -354,29 +368,39 @@ class WGUPSPackageRouter():
                     # after doing that for all packages, we should load:
                     # bundles, then individual packages with truck restrictions, then packages going to the same ZIP CODE
                     # (only 12 unique ZIP codes for the 40 packages, but there are 26 unique addresses), then any other packages
-                    """bundles = []
-                    for _, original_package in packages_by_ID:
+                    forced_bundles = []
+                    bundled_package_IDs = []
+                    for _, original_package in self.packages_by_ID:
                         if original_package.co_delivery_restrictions == None:
                             continue
-                        if original_package.id not in bundles
-                        put_into_bundle = False
-                        for package_ID in original_package.co_delivery_restrictions:
-                            for b in bundles:
-                                if package_ID in b.required_package_IDs and package_ID:
-                                    for id in original_package.co_delivery_restrictions:
-                                        b.required_package_IDs.add(id)
-                                        break
-                                    put_into_bundle = True
+
+                        if original_package.id not in bundled_package_IDs:
+                            bundle = MailBundle()
+                            bundled_package_IDs.extend(original_package.co_delivery_restrictions)
+
+                            for package_ID in original_package.co_delivery_restrictions:
+                                p = self.packages_by_ID.lookup_by_id(package_ID)
+                                if not p.can_be_delivered():
+                                    bundle = None
                                     break
+                                bundle.packages.append(p)
+                                if p.required_truck != None:
+                                    bundle.required_truck = p.required_truck
+
+                            if bundle != None:
+                                forced_bundles.append(bundle)
+
+                    for bundle in forced_bundles:
+                        if len(truck.packages) + len(bundle) <= truck.package_capacity:
+                            truck.load(bundle)
 
 
-                            bundle.packages.append(packages_by_ID.lookup_by_id(package_ID))"""
 
                     for _, package in truck.packages:
                         package.update_status(DeliveryStatus.ON_TRUCK, self.now)
             
                 if truck.route == None and len(truck.packages) >= 1:
-                    MST = self.generate_MST(truck)
+                    MST = self.generate_MST(truck.packages)
                     truck.route = self.generate_route(MST[0])
                     print("->".join(str(n) for n in truck.route))
                     print(f"total distance: {sum(n.distance for n in truck.route)}")     
