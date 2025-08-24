@@ -82,9 +82,7 @@ class HashTable():
             
             attempt_count += 1
 
-
-
-
+    # TODO: have some internal count for insertions; if we have to probe through some number of items all with the same key, then we should switch to a new table format that contains sub-HashTables or lists
     def insert(self, key, some_obj):
         key_hash = custom_hash(key)
         insertion_attempt_count = 0
