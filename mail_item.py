@@ -50,11 +50,12 @@ class MailItem():
         # Example: "Delayed on flight---will not arrive to depot until 9:05 am"
         delay_list = self.notes.split("Delayed on flight---will not arrive to depot until ")
         if len(delay_list) == 2:
-            self.delayed_until = delay_list[1]
+            self.delayed_until = string_12_to_time(delay_list[1])
+            self.delayed_until = time_to_minutes(self.delayed_until)
             self.update_status(DeliveryStatus.DELAYED)
 
         if "Wrong address listed" in self.notes:
-            self.has_incorrect_address = False
+            self.has_incorrect_address = True
             self.update_status(DeliveryStatus.DELAYED)
     
     def update_status(self, status:DeliveryStatus, time: int=0):
