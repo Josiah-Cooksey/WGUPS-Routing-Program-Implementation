@@ -30,10 +30,8 @@ def parse_package_data(filename):
                 # Package ID	Address	City 	State	Zip	Delivery Deadline	Weight KILO	page 1 of 1PageSpecial Notes 
                 row = next(reader)
                 item = MailItem(row[0].strip(), simplify_address(row[1].strip()), row[2].strip(), row[3].strip(), row[4].strip(), row[5].strip(), row[6].strip(), row[7].strip())
-                item.key = item.id
-                required_ID_table.insert(item.key, item)
-                item.key = item.address
-                my_table.insert(item.key, item)
+                required_ID_table.insert(item.id, item)
+                my_table.insert(item.address, item)
 
     except StopIteration:
         pass
@@ -137,7 +135,7 @@ def generate_MST(truck: Truck, distance_data):
     for element in minimum_spanning_tree:
         connections = " ".join(f"{minimum_spanning_tree.index(sub)}" for sub, _ in element.nodes)
         print(f"{minimum_spanning_tree.index(element)} {(element)} maps to: " + connections)
-    truck.minimum_spanning_tree = minimum_spanning_tree
+    return minimum_spanning_tree
 
 
 # recursively consumes an MST starting from the passed-in-node and returns a path covering each node and returning to the initial node
@@ -166,7 +164,7 @@ def generate_route(current_node:MSTNode, prior_node=None):
             path.append(d)
     # but no other edges connected makes this the start node again
     else:
-        # so the distance can be whatever
+        # so the distance can be whatever, but for this program it needs to be zero exactly due to how we measure our trucks' mileage
         path.append(DartNode(current_node.label, 0))
     
     return path
@@ -236,7 +234,7 @@ def start():
 
     distance_data = parse_distance_data("WGUPS Distance Table.csv")
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
-    ID_package_table, package_data = parse_package_data("WGUPS Package File.csv")
+    packages_by_ID, packages_by_address = parse_package_data("WGUPS Package File.csv")
     
     for truck_number in range(truck_count):
         trucks.append(Truck(truck_number + 1))
@@ -245,12 +243,9 @@ def start():
         d = DeliveryDriver(f"driver{driver_number + 1}")
         trucks[driver_number].driver = d
         drivers.append(d)
-    
-    # this could be incremented dynamically whenever a new package was added by an API if that functionality was ever implemented
-    total_package_count = sum(1 for item in package_data)
 
     truck_restricted_packages = HashTable()
-    for key, package in package_data:
+    for _, package in packages_by_address:
         if package.required_truck != None:
             truck_restricted_packages.insert(package.required_truck, package)
             # TODO: handle the fact that keys are currently mutable
@@ -274,14 +269,51 @@ def start():
                     print(f"after: {reference_test}")
                     break"""
             
+    # The delivery address for package #9, Third District Juvenile Court, is wrong and will be corrected at 10:20 a.m. 
+    # WGUPS is aware that the address is incorrect and will be updated at 10:20 a.m. 
+    # However, WGUPS does not know the correct address (410 S. State St., Salt Lake City, UT 84111) until 10:20 a.m.
+    timed_events = [[620, "update_address", [9, ["410 S State St", "Salt Lake City", "UT", 84111]]]]
+    for _, package in packages_by_address:
+        if package.delayed_until != None:
+            timed_events.append([package.delayed_until, "delayed_until", package.id])
 
-    
-    
-    while not delivered_packages == len(ID_package_table):
+    while not delivered_packages == len(packages_by_ID):
+        """PROCESS EVENTS"""
+        events_to_process_now = [event for event in timed_events if current_time_minutes >= event[0]]
+        for event in events_to_process_now:
+            # important to prevent packages from being marked AT_HUB repeatedly even after being delivered
+            timed_events.remove(event)
+            event_time, event_name, event_data = event
+
+            match event_name:
+                case "update_address":
+                    package_ID, new_address_data = event_data
+                    new_address, new_city, new_state, new_zip = new_address_data
+                    package = packages_by_ID.lookup_by_id(package_ID)
+
+                    # important to ensure that the package can be found by key (address)
+                    packages_by_address.remove_by_item(package.address, package)
+
+                    package.update_status(DeliveryStatus.AT_HUB)
+                    package.has_incorrect_address = False
+                    package.address = simplify_address(new_address.strip())
+                    package.city = new_city
+                    package.state = new_state
+                    package.zip = new_zip
+
+                    # reinsert after updating address 
+                    packages_by_address.insert(package.address, package)
+
+                case "delayed_until":
+                    package = packages_by_ID.lookup_by_id(event_data)
+                    package.delayed_until = None
+                    package.update_status(DeliveryStatus.AT_HUB, event_time)
+
+
         """LOAD PACKAGES"""
         for truck in trucks:
             # whenever the truck is at the hub we can safely assume that we should attempt to load packages 
-            if truck.done_with_route and len(truck.packages) < truck.package_capacity:
+            if truck.can_be_loaded(current_time_minutes):
                 """# TODO: pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
                 # another approach would be to group packages by address, then try to group groups
 
@@ -315,22 +347,23 @@ def start():
                 truck.unload(codelivery_packages_to_unload)
                 truck.load(codelivery_packages_to_load)
                 # and finally packages grouped by address"""
-                for _, package in package_data:
+                for _, package in packages_by_address:
                     if package.can_be_delivered():
                         truck.load(package)
 
                 for _, package in truck.packages:
                     package.update_status(DeliveryStatus.ON_TRUCK, current_time_minutes)
+        
+            if truck.route == None and len(truck.packages) >= 1:
+                MST = generate_MST(truck, distance_data)
+                truck.route = generate_route(MST[0])
+                print("->".join(str(n) for n in truck.route))
+                print(f"total distance: {sum(n.distance for n in truck.route)}")     
 
         # can't dispatch trucks until 8:00 am (8 * 60 = 480 minutes)
         if current_time_minutes >= start_time_minutes:
             for truck in trucks:
-                if len(truck.packages) >= 1:
-                    if truck.minimum_spanning_tree == None:
-                        generate_MST(truck, distance_data)
-                        truck.route = generate_route(truck.minimum_spanning_tree[0])
-                        print("->".join(str(n) for n in truck.route))
-                        print(f"total distance: {sum(n.distance for n in truck.route)}")
+                if truck.route != None:
                     truck.drive_route(current_time_minutes)
                     
                 
@@ -340,7 +373,7 @@ def start():
         """for key, package in package_data:
             # print(package.get_status(current_time_minutes))
             print(package.get_status(current_time_minutes))"""
-        delivered_packages = sum(1 for _, p in package_data if p.get_status(current_time_minutes)[1] == DeliveryStatus.DELIVERED)
+        delivered_packages = sum(1 for _, p in packages_by_address if p.get_status(current_time_minutes)[1] == DeliveryStatus.DELIVERED)
         if delivered_packages > 0:
             total_mileage = sum(t.get_current_mileage(current_time_minutes) for t in trucks)
             print(f"{minutes_to_time(current_time_minutes)}; total mileage: {total_mileage}; delivered packages: {delivered_packages}")
