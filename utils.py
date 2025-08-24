@@ -1,5 +1,5 @@
 import random
-from datetime import time
+from datetime import time, datetime
 
 def custom_hash(string_or_numeric: int | str | float):
     result = 0
@@ -37,5 +37,12 @@ def minutes_to_time(m):
     m = int(m % 60)
     return time(hour=h, minute=m)
 
+
 def time_to_minutes(t: time):
     return t.hour * 60 + t.minute
+
+
+# takes as input a string in the format "3:21 PM"
+def string_12_to_time(string: str):
+    string = string.strip().replace(" ", "")
+    return datetime.strptime(string, "%I:%M%p").time()
