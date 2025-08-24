@@ -31,7 +31,7 @@ def parse_package_data(filename):
                 row = next(reader)
                 item = MailItem(row[0].strip(), simplify_address(row[1].strip()), row[2].strip(), row[3].strip(), row[4].strip(), row[5].strip(), row[6].strip(), row[7].strip())
                 required_ID_table.insert(item.id, item)
-                my_table.insert(item.address, item)
+                my_table.insert(item.zip, item)
 
     except StopIteration:
         pass
@@ -234,8 +234,10 @@ def start():
 
     distance_data = parse_distance_data("WGUPS Distance Table.csv")
     # we create the required hash table with the ID as the key, as well as a hash table with the address being the key, which will make loading trucks with packages easier
-    packages_by_ID, packages_by_address = parse_package_data("WGUPS Package File.csv")
-    
+    packages_by_ID, packages_by_ZIP = parse_package_data("WGUPS Package File.csv")
+
+    # test = len(set([p.zip for _, p in packages_by_ID]))
+
     for truck_number in range(truck_count):
         trucks.append(Truck(truck_number + 1))
 
@@ -245,7 +247,7 @@ def start():
         drivers.append(d)
 
     truck_restricted_packages = HashTable()
-    for _, package in packages_by_address:
+    for _, package in packages_by_ZIP:
         if package.required_truck != None:
             truck_restricted_packages.insert(package.required_truck, package)
             
@@ -253,7 +255,7 @@ def start():
     # WGUPS is aware that the address is incorrect and will be updated at 10:20 a.m. 
     # However, WGUPS does not know the correct address (410 S. State St., Salt Lake City, UT 84111) until 10:20 a.m.
     timed_events = [[620, "update_address", [9, ["410 S State St", "Salt Lake City", "UT", 84111]]]]
-    for _, package in packages_by_address:
+    for _, package in packages_by_ZIP:
         if package.delayed_until != None:
             timed_events.append([package.delayed_until, "delayed_until", package.id])
 
@@ -271,8 +273,8 @@ def start():
                     new_address, new_city, new_state, new_zip = new_address_data
                     package = packages_by_ID.lookup_by_id(package_ID)
 
-                    # important to ensure that the package can be found by key (address)
-                    packages_by_address.remove_by_item(package.address, package)
+                    # important to ensure that the package can be found after the key updates
+                    packages_by_ZIP.remove_by_item(package.zip, package)
 
                     package.update_status(DeliveryStatus.AT_HUB)
                     package.has_incorrect_address = False
@@ -282,7 +284,7 @@ def start():
                     package.zip = new_zip
 
                     # reinsert after updating address 
-                    packages_by_address.insert(package.address, package)
+                    packages_by_ZIP.insert(package.zip, package)
 
                 case "delayed_until":
                     package = packages_by_ID.lookup_by_id(event_data)
@@ -334,8 +336,9 @@ def start():
                 # to do that, we should first bundle packages that must be delivered together
                 # then mark that bundle as restricted to a specific truck if any of its packages require it
                 # after doing that for all packages, we should load:
-                # bundles, then individual packages with truck restrictions, then packages going to the same address, then any other packages
-
+                # bundles, then individual packages with truck restrictions, then packages going to the same ZIP CODE
+                # (only 12 unique ZIP codes for the 40 packages, but there are 26 unique addresses), then any other packages
+                
 
                 for _, package in truck.packages:
                     package.update_status(DeliveryStatus.ON_TRUCK, current_time_minutes)
@@ -352,7 +355,7 @@ def start():
                 if truck.route != None:
                     truck.drive_route(current_time_minutes)
                     
-        delivered_packages = sum(1 for _, p in packages_by_address if p.get_status(current_time_minutes)[1] == DeliveryStatus.DELIVERED)
+        delivered_packages = sum(1 for _, p in packages_by_ID if p.get_status(current_time_minutes)[1] == DeliveryStatus.DELIVERED)
         if delivered_packages > 0:
             total_mileage = sum(t.get_current_mileage(current_time_minutes) for t in trucks)
             print(f"{minutes_to_time(current_time_minutes)}; total mileage: {total_mileage}; delivered packages: {delivered_packages}")
