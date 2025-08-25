@@ -1,6 +1,5 @@
 # Developed by Josiah Cooksey; WGU Student ID: 011030459
 import csv
-from enum import Enum
 import math
 import os
 from delivery_driver import DeliveryDriver
@@ -378,6 +377,7 @@ class WGUPSPackageRouter():
                     zip_bundles = []
                     bundled_package_IDs = []
                     cannot_be_bundled = []
+                    bundled_zip_codes = []
                     
                     # bundle packages that must be delivered together
                     for _, original_package in self.packages_by_ID:
@@ -406,20 +406,25 @@ class WGUPSPackageRouter():
 
                     # bundle by zip code
                     for _, package in self.packages_by_ID:
-                        if package.id in bundled_package_IDs or not package.can_be_delivered():
+                        if package.zip in bundled_zip_codes or package.id in bundled_package_IDs or not package.can_be_delivered():
                             continue
                         
                         zip_group = self.packages_by_ZIP.lookup_all(package.zip)
                         bundle = MailBundle()
                         bundle.bundled_by = package.zip
                         for zip_package in zip_group:
-                            if package.id in bundled_package_IDs or not package.can_be_delivered():
+                            if zip_package.id in bundled_package_IDs or not zip_package.can_be_delivered() or zip_package.co_delivery_restrictions != None:
                                 continue
                             
                             bundle.append(zip_package)
                             bundled_package_IDs.append(zip_package.id)
 
                         zip_bundles.append(bundle)
+                        bundled_zip_codes.append(bundle.bundled_by)
+                    
+                    """for zb in zip_bundles:
+                        for p in zb:
+                            print(p.id)"""
                     
                     """BUNDLE LOADING"""
                     # load packages with the same zip codes as packages already required to be on this truck 
