@@ -501,19 +501,19 @@ class WGUPSPackageRouter():
             self.now += 1
 
         print("done")
-
-        """for _, package in self.packages_by_ID:
-            print(f"#{package.id} deadline: {package.deadline}; delivered: {minutes_to_time(package.delivery_time)}")
-            # print(f"#{package.id}: {package.status_log}")"""
         
-        """D.  Provide an intuitive interface for the user to view the delivery status (including the delivery time) of any package at any time and the total mileage traveled by all trucks. (The delivery status should report the package as at the hub, en route, or delivered. Delivery status must include the time.)
-        1.  Provide screenshots to show the status of all packages loaded onto each truck at a time between 8:35 a.m. and 9:25 a.m.
-        2.  Provide screenshots to show the status of all packages loaded onto each truck at a time between 9:35 a.m. and 10:25 a.m.
-        3.  Provide screenshots to show the status of all packages loaded onto each truck at a time between 12:03 p.m. and 1:12 p.m."""
+        # 9:00AM, 10:00AM, and 1:00PM are 
+        # 540, 600, and 780 minutes
+        for t_minutes in [540, 600, 780]:
+            print(f"TIME: {minutes_to_time(t_minutes)}")
+            for _, package in self.packages_by_ID:
+                __, p_status = package.get_status(t_minutes)
+                print(f"Package {package.id} is {p_status}")
+                # print(f"#{package.id} deadline: {package.deadline}; delivered: {minutes_to_time(package.delivery_time)}")
+                # print(f"#{package.id}: {package.status_log}")
+        
         # TODO: add a user interface (CLI, maybe?) for checking package status
         command_input = None
-        """test = self.get_string_input("type something!!!\n")
-        print(f"you typed: {test}")"""
         while command_input != 'e':
             match command_input:
                 case 'p':
@@ -547,7 +547,7 @@ class WGUPSPackageRouter():
                 case 'e':
                     break
             
-            print("p: lookup package status and truck mileage\ne: exit")
+            print("press p to lookup package status and truck mileage\npress e to exit")
             command_input = msvcrt.getch().decode(errors="ignore")
 
     def get_string_input(self, prompt_text):
