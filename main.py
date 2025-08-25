@@ -173,9 +173,9 @@ class WGUPSPackageRouter():
                 
                 minimum_spanning_tree.append(new_vertex)
         
-        for element in minimum_spanning_tree:
+        """for element in minimum_spanning_tree:
             connections = " ".join(f"{minimum_spanning_tree.index(sub)}" for sub, _ in element.nodes)
-            print(f"{minimum_spanning_tree.index(element)} {(element)} maps to: " + connections)
+            print(f"{minimum_spanning_tree.index(element)} {(element)} maps to: " + connections)"""
         return minimum_spanning_tree
 
 
@@ -326,50 +326,9 @@ class WGUPSPackageRouter():
             for truck in self.trucks:
                 # whenever the truck is at the hub we can safely assume that we should attempt to load packages 
                 if truck.can_be_loaded(self.now):
-                    """# TODO: pick packages that have to go the farthest, grouped by address; then, while the truck still has room, find the closest address that needs packages delivered
-                    # another approach would be to group packages by address, then try to group groups
-
-
-                    # TODO: this currently doesn't take into account that we'd need to confirm that all loaded packages in the end are loaded with all members of their restriction group
-                    # we prioritise packages restricted to this truck
-                    _truck_restricted_packages = truck_restricted_packages.lookup_all(truck.id)
-                    for package in _truck_restricted_packages:
-                        if package.can_be_delivered():
-                            truck.load(package)
-                    # then packages that must be delivered together (ASSUMES THAT CO-DELIVERY RESTRICTIONS ARE LISTED ON ALL PACKAGES IN RESTRICTION GROUP)
-                    codelivery_packages_to_load = []
-                    codelivery_packages_to_unload = []
-                    for _, loaded_package in truck.packages:
-                        # because some packages that need to be delivered together may not all be ready for delivery
-                        # we will first find all of them and load them into a buffer
-                        loading_buffer = []
-                        all_buffered_packages_can_be_delivered = True
-                        if loaded_package.co_delivery_restrictions != None:
-                            for other_package in loaded_package.co_delivery_restrictions:
-                                if not other_package.can_be_delivered():
-                                    all_buffered_packages_can_be_delivered = False
-                                    # if all grouped packages aren't deliverable, then we need to unload the already-loaded package of that group
-                                    codelivery_packages_to_unload.append((loaded_package.address, loaded_package))
-                                    break
-                                loading_buffer.append(other_package)
-
-                        if all_buffered_packages_can_be_delivered:
-                            codelivery_packages_to_load.extend(loading_buffer)
-
-                    truck.unload(codelivery_packages_to_unload)
-                    truck.load(codelivery_packages_to_load)
-                    # and finally packages grouped by address"""
-                    """for _, package in packages_by_address:
-                        if package.can_be_delivered() and len(truck.packages) < truck.package_capacity:
-                            truck.load(package)"""
-                    # what may work best is that whenever trucks are available to load, we create package groups and load those bundles all at once
-                    # to do that, we should first bundle packages that must be delivered together
-                    # then mark that bundle as restricted to a specific truck if any of its packages require it
-                    # after doing that for all packages, we should load:
-                    # bundles, then individual packages with truck restrictions, then packages going to the same ZIP CODE
-                    # (only 12 unique ZIP codes for the 40 packages, but there are 26 unique addresses), then any other packages
-
-                    # bundle what's required
+                    # TODO: avoid repeating bundling inside truck loop
+                    # TODO: maybe load more packages and recalculate route when the truck is at the hub
+                    # bundle packages that must be delivered together
                     forced_bundles = []
                     zip_bundles = []
                     bundled_package_IDs = []
@@ -390,15 +349,12 @@ class WGUPSPackageRouter():
                                     bundle = None
                                     break
                                 bundle.append(p)
+                                # then mark that bundle as restricted to a specific truck if any of its packages require it
                                 if p.required_truck != None:
                                     bundle.required_truck = p.required_truck
 
                             if bundle != None:
                                 forced_bundles.append(bundle)
-
-                    """for bundle in forced_bundles:
-                        if len(truck.packages) + len(bundle) <= truck.package_capacity:
-                            truck.load(bundle)"""
 
                     # bundle by zip code
                     for _, package in self.packages_by_ID:
@@ -417,7 +373,7 @@ class WGUPSPackageRouter():
 
                         zip_bundles.append(bundle)
                     
-                    # this loads packages with the same zip codes as packages already required to be on this truck 
+                    # load packages with the same zip codes as packages already required to be on this truck 
                     for bundle in forced_bundles:
                         if len(truck.packages) + len(bundle) <= truck.package_capacity:
                             truck.load(bundle) 
@@ -425,6 +381,9 @@ class WGUPSPackageRouter():
                                 continue
                             
                             for loaded_package in bundle:
+                                if len(truck.packages) >= truck.package_capacity:
+                                    break
+
                                 for zip_bundle in zip_bundles:
                                     if loaded_package.zip != zip_bundle.bundled_by:
                                         continue
@@ -467,7 +426,8 @@ class WGUPSPackageRouter():
                     MST = self.generate_MST(truck.packages)
                     truck.route = self.generate_route(MST[0])
                     print("->".join(str(n) for n in truck.route))
-                    print(f"total distance: {sum(n.distance for n in truck.route)}")     
+                    t_distance = sum(n.distance for n in truck.route)
+                    print(f"total distance: {t_distance}; average distance/package: {t_distance/len(truck.packages)}")     
 
             # can't dispatch trucks until 8:00 am (8 * 60 = 480 minutes)
             if self.now >= self.start_time_minutes:
@@ -479,11 +439,10 @@ class WGUPSPackageRouter():
             if self.delivered_packages > 0:
                 total_mileage = sum(t.get_current_mileage(self.now) for t in self.trucks)
                 print(f"{minutes_to_time(self.now)}; total mileage: {total_mileage}; delivered packages: {self.delivered_packages}")
-            # it may be easiest to progress 1 minute at a time
+            # it seems easiest to progress 1 minute at a time
             self.now += 1
 
-        # update package #9 address at a specific time (maybe an "updates" list that we poll each minute that progresses?)
-        # add a user interface for checking package status
+        # TODO: add a user interface for checking package status
 
         print("done")
 
