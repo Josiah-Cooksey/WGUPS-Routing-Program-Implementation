@@ -278,7 +278,11 @@ class WGUPSPackageRouter():
             
         return
 
-    """A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
+    """
+    Your task is to determine an algorithm, write code, and present a solution where:
+    • all 40 packages will be delivered on time while meeting each package’s requirements and keeping the combined total distance traveled under 140 miles for all trucks.
+
+    A.  Develop a hash table, without using any additional libraries or classes, that has an insertion function that takes the package ID as input and inserts each of the following data components into the hash table:
     •   delivery address
     •   delivery deadline
     •   delivery city
@@ -368,16 +372,18 @@ class WGUPSPackageRouter():
             for truck in self.trucks:
                 # whenever the truck is at the hub we can safely assume that we should attempt to load packages 
                 if truck.can_be_loaded(self.now):
+                    """BUNDLING"""
                     # TODO: avoid repeating bundling inside truck loop
-                    # TODO: maybe load more packages and recalculate route when the truck is at the hub
-                    # bundle packages that must be delivered together
                     forced_bundles = []
                     zip_bundles = []
                     bundled_package_IDs = []
                     cannot_be_bundled = []
+                    
+                    # bundle packages that must be delivered together
                     for _, original_package in self.packages_by_ID:
                         if not original_package.can_be_delivered():
                             cannot_be_bundled.append(original_package)
+                            continue
                         if original_package.co_delivery_restrictions == None:
                             continue
 
@@ -407,7 +413,7 @@ class WGUPSPackageRouter():
                         bundle = MailBundle()
                         bundle.bundled_by = package.zip
                         for zip_package in zip_group:
-                            if package.id in zip_bundles or package.id in bundled_package_IDs or not package.can_be_delivered():
+                            if package.id in bundled_package_IDs or not package.can_be_delivered():
                                 continue
                             
                             bundle.append(zip_package)
@@ -415,6 +421,7 @@ class WGUPSPackageRouter():
 
                         zip_bundles.append(bundle)
                     
+                    """BUNDLE LOADING"""
                     # load packages with the same zip codes as packages already required to be on this truck 
                     for bundle in forced_bundles:
                         if len(truck.packages) + len(bundle) <= truck.package_capacity:
@@ -465,10 +472,10 @@ class WGUPSPackageRouter():
                         package.update_status(DeliveryStatus.ON_TRUCK, self.now)
             
                 if truck.route == None and len(truck.packages) >= 1:
-                    # a minimum spanning tree seems too inefficient
+                    # a minimum spanning tree seems too inefficient at around 470 miles total
                     """MST = self.generate_MST(truck.packages)
                     truck.route = self.generate_route(MST[0])"""
-                    # so we'll try a greedy approach
+                    # so we'll use a greedy approach, which turned out to be significantly efficient at 151.9 miles total
                     greedy_route = self.generate_greedy_route(truck.packages)
                     truck.route = greedy_route
                     print("->".join(str(n) for n in truck.route))
@@ -491,6 +498,8 @@ class WGUPSPackageRouter():
         # TODO: add a user interface (CLI, maybe?) for checking package status
 
         print("done")
+        for _, package in self.packages_by_ID:
+            print(f"#{package.id}: {package.status_log}")
 
 
 if __name__ == "__main__":
