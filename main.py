@@ -180,7 +180,7 @@ class WGUPSPackageRouter():
 
 
     # recursively consumes an MST starting from the passed-in-node and returns a path covering each node and returning to the initial node
-    def generate_route(self, current_node:MSTNode, prior_node=None):
+    def generate_MST_route(self, current_node:MSTNode, prior_node=None):
         path = []
 
         # first, we add the paths through all sub-nodes except for the prior_node (which would technically be the parent, if one exists)
@@ -192,7 +192,7 @@ class WGUPSPackageRouter():
             self_dart = DartNode(current_node.label, distance_to_next_node)
             path.append(self_dart)
 
-            path.extend(self.generate_route(next_node, current_node))
+            path.extend(self.generate_MST_route(next_node, current_node))
             current_node.remove_node(next_node)
 
         # when there's only one edge connected to the current node
@@ -209,6 +209,48 @@ class WGUPSPackageRouter():
             path.append(DartNode(current_node.label, 0))
         
         return path
+    
+
+    def generate_greedy_route(self, packages: HashTable):
+        route = []
+        visited_addresses = []
+
+        last_node_visited =  DartNode("HUB", 0)
+        route.append(last_node_visited)
+        remaining_unique_addresses = list(set(address for address, _ in packages))
+
+        # in a loop, we should pick the next address that's the shortest distance away from last_node_visited
+            # then set last_node_visited.distance to be the distance between last_node_visited.label and the next_address 
+            # assign last_node_visited = DartNode(, 0)
+            # route.append(last_node_visited) 
+        
+        while len(remaining_unique_addresses) >= 1:
+            last_node_visited_address_book = self.distance_data.lookup_exact(last_node_visited.label)
+            shortest_distance = math.inf
+            shortest_address = None
+            for next_address in remaining_unique_addresses:
+                next_address_distance = last_node_visited_address_book.lookup_exact(next_address).distance
+                if next_address_distance < shortest_distance:
+                    shortest_distance = next_address_distance
+                    shortest_address = next_address
+            
+            # now that we've found shortest_address in remaining_unique_addresses that's closest to last_node_visited
+            # we can remove shortest_address from remaining_unique_addresses
+            remaining_unique_addresses.remove(shortest_address)
+            # make sure to update the last node to reflect the distance to shortest_address
+            last_node_visited.distance = shortest_distance
+            # and update last_node_visited
+            last_node_visited = DartNode(shortest_address, 0)
+            route.append(last_node_visited) 
+
+        # after appending that initial HUB node and all addresses from remaining_unique_addresses
+        # we just need to return to the HUB and ensure that the return distance for the 2nd to last node is correct
+        final_node = DartNode("HUB", 0)
+        route.append(final_node)
+
+        final_node_address_book = self.distance_data.lookup_exact(final_node.label)
+        last_node_visited.distance = final_node_address_book.lookup_exact(last_node_visited.label).distance
+        return route
 
 
     def populate_codelivery_restrictions(self):
@@ -423,8 +465,12 @@ class WGUPSPackageRouter():
                         package.update_status(DeliveryStatus.ON_TRUCK, self.now)
             
                 if truck.route == None and len(truck.packages) >= 1:
-                    MST = self.generate_MST(truck.packages)
-                    truck.route = self.generate_route(MST[0])
+                    # a minimum spanning tree seems too inefficient
+                    """MST = self.generate_MST(truck.packages)
+                    truck.route = self.generate_route(MST[0])"""
+                    # so we'll try a greedy approach
+                    greedy_route = self.generate_greedy_route(truck.packages)
+                    truck.route = greedy_route
                     print("->".join(str(n) for n in truck.route))
                     t_distance = sum(n.distance for n in truck.route)
                     print(f"total distance: {t_distance}; average distance/package: {t_distance/len(truck.packages)}")     
@@ -442,7 +488,7 @@ class WGUPSPackageRouter():
             # it seems easiest to progress 1 minute at a time
             self.now += 1
 
-        # TODO: add a user interface for checking package status
+        # TODO: add a user interface (CLI, maybe?) for checking package status
 
         print("done")
 
