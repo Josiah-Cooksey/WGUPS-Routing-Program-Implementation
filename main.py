@@ -11,6 +11,7 @@ from truck import Truck
 from utils import *
 from mst_node import MSTNode
 from mail_bundle import MailBundle
+import msvcrt
 
 class WGUPSPackageRouter():
     def __init__(self):
@@ -479,10 +480,9 @@ class WGUPSPackageRouter():
                 if truck.route == None and len(truck.packages) >= 1:
                     # a minimum spanning tree seems too inefficient at around 470 miles total
                     """MST = self.generate_MST(truck.packages)
-                    truck.route = self.generate_route(MST[0])"""
+                    truck.route = self.generate_MST_route(MST[0])"""
                     # so we'll use a greedy approach, which turned out to be significantly efficient at 151.9 miles total
-                    greedy_route = self.generate_greedy_route(truck.packages)
-                    truck.route = greedy_route
+                    truck.route = self.generate_greedy_route(truck.packages)
                     print("->".join(str(n) for n in truck.route))
                     t_distance = sum(n.distance for n in truck.route)
                     print(f"total distance: {t_distance}; average distance/package: {t_distance/len(truck.packages)}")     
@@ -500,11 +500,59 @@ class WGUPSPackageRouter():
             # it seems easiest to progress 1 minute at a time
             self.now += 1
 
-        # TODO: add a user interface (CLI, maybe?) for checking package status
-
         print("done")
-        for _, package in self.packages_by_ID:
-            print(f"#{package.id}: {package.status_log}")
+
+        """for _, package in self.packages_by_ID:
+            print(f"#{package.id} deadline: {package.deadline}; delivered: {minutes_to_time(package.delivery_time)}")
+            # print(f"#{package.id}: {package.status_log}")"""
+        
+        """D.  Provide an intuitive interface for the user to view the delivery status (including the delivery time) of any package at any time and the total mileage traveled by all trucks. (The delivery status should report the package as at the hub, en route, or delivered. Delivery status must include the time.)
+        1.  Provide screenshots to show the status of all packages loaded onto each truck at a time between 8:35 a.m. and 9:25 a.m.
+        2.  Provide screenshots to show the status of all packages loaded onto each truck at a time between 9:35 a.m. and 10:25 a.m.
+        3.  Provide screenshots to show the status of all packages loaded onto each truck at a time between 12:03 p.m. and 1:12 p.m."""
+        # TODO: add a user interface (CLI, maybe?) for checking package status
+        command_input = None
+        """test = self.get_string_input("type something!!!\n")
+        print(f"you typed: {test}")"""
+        while command_input != 'e':
+            match command_input:
+                case 'p':
+                    package_ID = None
+                    found_package = None
+                    # get package ID
+                    while True:
+                        package_ID = self.get_string_input("What is the ID of the package that you'd like to check the status of?\n")
+                        try:
+                            package_ID = int(package_ID)
+                            found_package = self.packages_by_ID.lookup_by_id(package_ID)
+                            if found_package == None:
+                                print(f"A package with ID {package_ID} could not be found.")
+                            else:
+                                break
+                        except:
+                            print("Invalid format! Package ID must be an integer.")
+
+                    # get time to check status
+                    time_input = None
+                    while True:
+                        time_input = self.get_string_input(f"At what time should package ID #{package_ID}'s status be checked?\n")
+                        try:
+                            time_input = string_12_to_time(time_input)
+                            minutes_time_input = time_to_minutes(time_input)
+                            result_time, result_status = found_package.get_status(minutes_time_input)
+                            print(f"At {time_input}:\nPackage {package_ID} was {result_status} since {result_time}.\nTotal truck mileage was {sum(t.get_current_mileage(minutes_time_input) for t in self.trucks)}.")
+                            break
+                        except:
+                            print("Invalid format! Format example: 3:21 PM")
+                case 'e':
+                    break
+            
+            print("p: lookup package status and truck mileage\ne: exit")
+            command_input = msvcrt.getch().decode(errors="ignore")
+
+    def get_string_input(self, prompt_text):
+        response = input(prompt_text)
+        return response.strip()
 
 
 if __name__ == "__main__":
