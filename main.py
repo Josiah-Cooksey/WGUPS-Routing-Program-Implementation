@@ -442,17 +442,6 @@ class WGUPSPackageRouter():
 
         print("done")
         
-        # 9:00AM, 10:00AM, and 1:00PM are 
-        # 540, 600, and 780 minutes
-        for t_minutes in [540, 600, 780]:
-            print(f"TIME: {minutes_to_time(t_minutes)}")
-            for _, package in self.packages_by_ID:
-                __, p_status = package.get_status(t_minutes)
-                print(f"Package {package.id} is {p_status}")
-                # print(f"#{package.id} deadline: {package.deadline}; delivered: {minutes_to_time(package.delivery_time)}")
-                # print(f"#{package.id}: {package.status_log}")
-        
-        # TODO: add a user interface (CLI, maybe?) for checking package status
         command_input = None
         while command_input != 'e':
             match command_input:
