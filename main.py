@@ -351,6 +351,8 @@ class WGUPSPackageRouter():
                             if bundle != None:
                                 forced_bundles.append(bundle)
 
+
+
                     # bundle by zip code
                     for _, package in self.packages_by_ID:
                         if package.zip in bundled_zip_codes or package.id in bundled_package_IDs or not package.can_be_delivered():
@@ -364,10 +366,18 @@ class WGUPSPackageRouter():
                                 continue
                             
                             bundle.append(zip_package)
+                            if zip_package.deadline != "EOD":
+                                deadline = time_to_minutes(string_12_to_time(zip_package.deadline))
+                                if deadline < bundle.earliest_deadline:
+                                    bundle.earliest_deadline = deadline
                             bundled_package_IDs.append(zip_package.id)
 
                         zip_bundles.append(bundle)
                         bundled_zip_codes.append(bundle.bundled_by)
+                    
+                    # now because bundles bundled by zip code have a earliest_deadline field
+                    # we can sort by that to handle the zip codes with the earliest deadlines instead of just in order that they happened to be bundled
+                    zip_bundles.sort(key=lambda x: x.earliest_deadline)
                     
                     
                     """BUNDLE LOADING"""
@@ -399,6 +409,7 @@ class WGUPSPackageRouter():
                                             break
                                     # there is only 1 zip_bundle grouped by the same zip as loaded_package, so we don't need to continue this for-loop
                                     break
+
 
                     # repeated code needs to be in a function
                     for zip_bundle in zip_bundles:
