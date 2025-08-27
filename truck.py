@@ -88,10 +88,12 @@ class Truck():
 
     def load(self, package_or_packages: MailItem | List[MailItem]):
         if isinstance(package_or_packages, MailItem):
+            package_or_packages.shipped_using_truck_id = self.id
             self.packages.insert(package_or_packages.address, package_or_packages)
             return
 
         for package in package_or_packages:
+            package.shipped_using_truck_id = self.id
             self.packages.insert(package.address, package)
     
 

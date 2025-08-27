@@ -18,6 +18,7 @@ class MailItem():
         self.status_log = []
 
         self.required_truck = None
+        self.shipped_using_truck_id = "Not loaded on truck"
         self.co_delivery_restrictions = None
         self.delayed_until = None
         self.has_incorrect_address = None
