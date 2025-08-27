@@ -377,7 +377,10 @@ class WGUPSPackageRouter():
                     
                     # now because bundles bundled by zip code have a earliest_deadline field
                     # we can sort by that to handle the zip codes with the earliest deadlines instead of just in order that they happened to be bundled
-                    zip_bundles.sort(key=lambda x: x.earliest_deadline)
+                    # this sorts bundles by earliest deadline, and secondly by which has more packages with a deadline
+                    zip_bundles.sort(key=lambda x: (x.earliest_deadline, sum(1 for f in x.packages if p.deadline != "EOD")))
+                    """for bundle in zip_bundles:
+                        bundle.packages.sort(key=lambda x: time_to_minutes(string_12_to_time(x.deadline)))"""
                     
                     
                     """BUNDLE LOADING"""
