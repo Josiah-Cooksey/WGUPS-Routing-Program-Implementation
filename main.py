@@ -18,6 +18,7 @@ class WGUPSPackageRouter():
         self.driver_count = 2
         self.truck_count = 3
         self.drivers = []
+        self.all_trucks = []
         self.trucks = []
         # when trucks can depart hub after
         self.start_time_minutes = 480
@@ -33,12 +34,14 @@ class WGUPSPackageRouter():
         # test = len(set([p.zip for _, p in packages_by_ID]))
 
         for truck_number in range(self.truck_count):
-            self.trucks.append(Truck(truck_number + 1))
+            self.all_trucks.append(Truck(truck_number + 1))
 
         for driver_number in range(self.driver_count):
             d = DeliveryDriver(f"driver{driver_number + 1}")
-            self.trucks[driver_number].driver = d
+            self.all_trucks[driver_number].driver = d
             self.drivers.append(d)
+            # all_trucks includes trucks not assigned a driver
+            self.trucks.append(self.all_trucks[driver_number])
 
         self.truck_restricted_packages = HashTable()
         for _, package in self.packages_by_ZIP:
