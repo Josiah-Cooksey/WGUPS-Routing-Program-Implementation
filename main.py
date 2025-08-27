@@ -456,7 +456,17 @@ class WGUPSPackageRouter():
         command_input = None
         while command_input != 'e':
             match command_input:
-                case 'p':
+                case 'a':
+                     # prompt for time to check status
+                    minutes_time_input = self.get_input_time(f"What time would you like to check the status of all packages? Format example: 3:21 PM\n", "Invalid format! Format example: 3:21 PM")
+                    traditional_time_input = minutes_to_time(minutes_time_input)
+                    print(f"At {traditional_time_input}; Package ID, Delivery Address, Delivery Deadline, Delivery Status, Truck Number:")
+                    for _, package in self.packages_by_ID:
+                        _, delivery_status = package.get_status(minutes_time_input)
+                        print(f"{package.id}, {package.address}, {package.deadline}, {delivery_status}, {package.shipped_using_truck_id}")
+                    
+                    print(f"At that time (traditional_time_input), total truck mileage was {sum(t.get_current_mileage(minutes_time_input) for t in self.trucks)}")
+                case 'i':
                     package_ID = None
                     found_package = None
                     # get package ID
@@ -471,28 +481,33 @@ class WGUPSPackageRouter():
                                 break
                         except:
                             print("Invalid format! Package ID must be an integer.")
-
-                    # get time to check status
-                    time_input = None
-                    while True:
-                        time_input = self.get_string_input(f"At what time should package ID #{package_ID}'s status be checked?\n")
-                        try:
-                            time_input = string_12_to_time(time_input)
-                            minutes_time_input = time_to_minutes(time_input)
-                            result_time, result_status = found_package.get_status(minutes_time_input)
-                            print(f"At {time_input}:\nPackage {package_ID} was {result_status} since {result_time}.\nTotal truck mileage was {sum(t.get_current_mileage(minutes_time_input) for t in self.trucks)}.")
-                            break
-                        except:
-                            print("Invalid format! Format example: 3:21 PM")
+                            
+                    # prompt for time to check status
+                    minutes_time_input = self.get_input_time(f"At what time should package ID #{package_ID}'s status be checked? Format example: 3:21 PM\n", "Invalid format! Format example: 3:21 PM")
+                    traditional_time_input = minutes_to_time(minutes_time_input)
+                    result_time, result_status = found_package.get_status(minutes_time_input)
+                    print(f"At {traditional_time_input}:\nPackage {package_ID} was {result_status} since {result_time}.\nTotal truck mileage was {sum(t.get_current_mileage(minutes_time_input) for t in self.trucks)}.")
                 case 'e':
                     break
             
-            print("press p to lookup package status and truck mileage\npress e to exit")
+            print("press a to check status of ALL packages\npress i to check individual package status\npress e to exit")
             command_input = msvcrt.getch().decode(errors="ignore")
 
     def get_string_input(self, prompt_text):
         response = input(prompt_text)
         return response.strip()
+
+    def get_input_time(self, prompt, error_message):
+        time_input = None
+        while True:
+            time_input = self.get_string_input(prompt)
+            try:
+                time_input = string_12_to_time(time_input)
+                minutes_time_input = time_to_minutes(time_input)
+                return minutes_time_input
+            except:
+                print(error_message)
+
 
 
 if __name__ == "__main__":
