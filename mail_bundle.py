@@ -1,9 +1,12 @@
-# used to group packages that MUST be delivered together
+import math
+
+# used to group packages together
 class MailBundle():
     def __init__(self):
         self.packages = []
         self.required_truck = None
         self.bundled_by = None
+        self.earliest_deadline = math.inf
 
     def __iter__(self):
         return (p for p in self.packages)
