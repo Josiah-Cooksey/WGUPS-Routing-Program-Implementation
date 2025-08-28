@@ -299,12 +299,7 @@ class WGUPSPackageRouter():
                         # important to ensure that the package can be found after the key updates
                         self.packages_by_ZIP.remove_by_item(package.zip, package)
 
-                        package.update_status(DeliveryStatus.AT_HUB)
-                        package.has_incorrect_address = False
-                        package.address = simplify_address(new_address.strip())
-                        package.city = new_city
-                        package.state = new_state
-                        package.zip = new_zip
+                        package.update_incorrect_address([simplify_address(new_address.strip()), new_city, new_state, new_zip], self.now)
 
                         # reinsert after updating address 
                         self.packages_by_ZIP.insert(package.zip, package)
@@ -466,10 +461,13 @@ class WGUPSPackageRouter():
                      # prompt for time to check status
                     minutes_time_input = self.get_input_time(f"What time would you like to check the status of all packages? Format example: 3:21 PM\n", "Invalid format! Format example: 3:21 PM")
                     traditional_time_input = minutes_to_time(minutes_time_input)
-                    print(f"At {traditional_time_input}\nPackage ID, Delivery Address, Delivery Deadline, Delivery Status, Truck Number:")
+                    print(f"At {traditional_time_input}\nPackage ID, Delivery Address, Delivery Deadline, Delivery Status, Delivery Time, Truck Number:")
                     for _, package in self.packages_by_ID:
                         _, delivery_status = package.get_status(minutes_time_input)
-                        print(f"{package.id:<4} {package.address:<40} {package.deadline:<8} {delivery_status:<10} {package.shipped_using_truck_id:<4}")
+                        delivery_time = package.get_delivery_time(minutes_time_input)
+                        if delivery_time != "N/A":
+                            delivery_time = minutes_to_time(delivery_time)
+                        print(f"{package.id:<4} {package.get_address(minutes_time_input)[0]:<40} {package.deadline:<8} {delivery_status:<10} {(str(delivery_time)):<8} {package.shipped_using_truck_id:<4}")
                     
                     print(f"At that time ({traditional_time_input}), total truck mileage was {sum(t.get_current_mileage(minutes_time_input) for t in self.trucks)}")
                 case 'i':
