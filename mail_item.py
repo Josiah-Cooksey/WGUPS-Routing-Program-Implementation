@@ -16,6 +16,9 @@ class MailItem():
         self.delivery_time = None
         self.hash = None
         self.status_log = []
+        self.address_log = []
+        
+        self.address_log.append((0, [self.address, self.city, self.state, self.zip]))
 
         self.required_truck = None
         self.shipped_using_truck_id = "Not loaded on truck"
@@ -83,6 +86,33 @@ class MailItem():
             prior_entry = entry
             
         return (minutes_to_time(entry_time), entry_status)
+    
+    # only exists because sometimes we want to check the address at a particular time, and some packages have their incorrect addresses updated
+    def get_address(self, time):
+        prior_entry = prior_entry_address = prior_entry_time = entry = entry_address = entry_time = None
+        for entry in self.address_log:
+            entry_time, entry_address = entry
+            if entry_time > time:
+                prior_entry_time, prior_entry_address = prior_entry
+                return prior_entry_address
+
+            prior_entry = entry
+            
+        return entry_address
+
+    # new_address should be a list in the format ["410 S State St", "Salt Lake City", "UT", 84111]
+    def update_incorrect_address(self, new_address, time: int=0):
+        self.address_log.append((time, new_address))
+        self.has_incorrect_address = False
+        self.update_status(DeliveryStatus.AT_HUB, time)
+
+    def get_delivery_time(self, time):
+        if self.delivery_time == None:
+            return "N/A"
+        if self.delivery_time <= time:
+            return self.delivery_time
+        return "N/A"
+
     
     def can_be_delivered(self):
         return not self.delayed_until and not self.has_incorrect_address and self.delivery_status == DeliveryStatus.AT_HUB
