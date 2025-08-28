@@ -17,5 +17,10 @@ class MailBundle():
     def append(self, package):
         self.packages.append(package)
     
+    def extend(self, package):
+        self.packages.extend(package)
+    
     def pop(self):
-        return self.packages.pop(-1)
+        if len(self.packages) >= 1:
+            return self.packages.pop(-1)
+        raise IndexError
