@@ -381,6 +381,9 @@ class WGUPSPackageRouter():
                     """BUNDLE LOADING"""
                     # load packages with the same zip codes as packages already required to be on this truck 
                     for bundle in forced_bundles:
+                        if bundle.required_truck != None and bundle.required_truck != truck.id:
+                            continue
+
                         if len(truck.packages) + len(bundle) <= truck.package_capacity:
                             truck.load(bundle) 
                             if len(truck.packages) >= truck.package_capacity: 
@@ -397,14 +400,21 @@ class WGUPSPackageRouter():
                                     # we add as many packages with the same zip code from the bundle into the truck
                                     # and it doesn't matter that the bundle now has fewer items because they are not required to be bundled
                                     # it's just to optimise distance
+                                    must_return_to_bundle = []
                                     while len(truck.packages) < truck.package_capacity:
                                         # .pop may throw IndexError 
                                         try:
                                             z = zip_bundle.pop()
+                                            if z.required_truck != None and z.required_truck != truck.id:
+                                                must_return_to_bundle.append(z)
+                                                continue
+                                            
                                             truck.load(z)
 
                                         except IndexError:
                                             break
+                                    # ensures that any packages with a required truck ID not matching this truck's ID are returned to the zip bundle
+                                    zip_bundle.extend(must_return_to_bundle)
                                     # there is only 1 zip_bundle grouped by the same zip as loaded_package, so we don't need to continue this for-loop
                                     break
 
@@ -414,14 +424,23 @@ class WGUPSPackageRouter():
                         # we add as many packages with the same zip code from the bundle into the truck
                         # and it doesn't matter that the bundle now has fewer items because they are not required to be bundled
                         # it's just to optimise distance
+                        
+                        must_return_to_bundle = []
                         while len(truck.packages) < truck.package_capacity:
                             # .pop may throw IndexError 
                             try:
                                 z = zip_bundle.pop()
+                                if z.required_truck != None and z.required_truck != truck.id:
+                                    must_return_to_bundle.append(z)
+                                    continue
+
                                 truck.load(z)
 
                             except IndexError:
                                 break
+
+                        # ensures that any packages with a required truck ID not matching this truck's ID are returned to the zip bundle
+                        zip_bundle.extend(must_return_to_bundle)
 
                         if len(truck.packages) >= truck.package_capacity:
                             break
